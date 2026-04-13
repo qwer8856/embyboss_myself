@@ -106,6 +106,9 @@
   "auto_update": {
     "status": true,
     "git_repo": "qwer8856/embyboss_myself",
+    "docker_image": "gongjuren8856/embyboss_myself:latest",
+    "docker_webhook_url": null,
+    "docker_webhook_token": null,
     "commit_sha": null
   },
   "red_envelope": {

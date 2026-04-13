@@ -116,8 +116,11 @@ class MP(BaseModel):
 class AutoUpdate(BaseModel):
     status: bool = True
     git_repo: Optional[str] = "qwer8856/embyboss_myself"  # github仓库名/魔改的请填自己的仓库
+    docker_image: Optional[str] = "gongjuren8856/embyboss_myself:latest"
     commit_sha: Optional[str] = None  # 最近一次commit
     up_description: Optional[str] = None  # 更新描述
+    docker_webhook_url: Optional[str] = None
+    docker_webhook_token: Optional[str] = None
 
 
 class API(BaseModel):
