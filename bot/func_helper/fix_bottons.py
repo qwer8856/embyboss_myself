@@ -67,7 +67,25 @@ def judge_start_ikb(is_admin: bool, account: bool) -> InlineKeyboardMarkup:
     if is_admin:
         lines.append([['👮🏻‍♂️ admin', 'manage']])
     keyword = ikb(lines)
-    show_redeem_button = (not account) or schedall.check_ex
+
+    # 无账号时：将“创建账户(create)”按钮直接替换为打开 Mini App 的启用页
+    if web_panel_ok and not account and getattr(keyword, "inline_keyboard", None):
+        replaced = False
+        for row in keyword.inline_keyboard:
+            if replaced:
+                break
+            for idx, btn in enumerate(row):
+                if getattr(btn, "callback_data", None) == "create":
+                    row[idx] = InlineKeyboardButton(
+                        text=getattr(btn, "text", "创建账户"),
+                        web_app=WebAppInfo(url=webapp_url_with_panel_view("activate")),
+                    )
+                    replaced = True
+                    break
+
+    # 仅有账号时显示“使用续期码”按钮，无账号不再额外加“使用注册码”按钮
+    show_redeem_button = account and schedall.check_ex
+    show_redeem_button = account and schedall.check_ex
     if web_panel_ok and show_redeem_button:
         redeem_text = '🎟️ 使用续期码' if account else '🎟️ 使用注册码'
         keyword.inline_keyboard.append([
