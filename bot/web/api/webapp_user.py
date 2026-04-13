@@ -12,7 +12,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config
+from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config, schedall
 from bot.func_helper.emby import emby, Embyservice
 from bot.func_helper.utils import pwd_create
 from bot.sql_helper import Session
@@ -83,11 +83,20 @@ def _normalize_safe_code(raw: str) -> str:
 
 def _get_renew_config() -> dict:
     points_enabled = bool(getattr(_open, "exchange", False))
+    check_ex_enabled = bool(getattr(schedall, "check_ex", False))
+    low_activity_enabled = bool(getattr(schedall, "low_activity", False))
+    activity_days = int(getattr(bot_config, "activity_check_days", 30) or 30)
+    points_cost = int(getattr(_open, "exchange_cost", 300) or 300)
     return {
-        "mode": "points" if points_enabled else "code",
+        # legacy field kept for compatibility with older frontend logic
+        "mode": "code",
+        "code_enabled": True,
         "points_enabled": points_enabled,
-        "points_cost": int(getattr(_open, "exchange_cost", 300) or 300),
+        "points_cost": points_cost,
         "points_days": 30,
+        "check_ex_enabled": check_ex_enabled,
+        "low_activity_enabled": low_activity_enabled,
+        "activity_check_days": activity_days,
     }
 
 
@@ -172,9 +181,13 @@ async def user_status(user=Depends(get_current_webapp_user)):
             "public_open_used": int(_open.tem or 0),
             "public_open_left": max(int(_open.all_user or 0) - int(_open.tem or 0), 0),
             "renew_mode": renew["mode"],
+            "renew_code_enabled": renew["code_enabled"],
             "renew_points_enabled": renew["points_enabled"],
             "renew_points_cost": renew["points_cost"],
             "renew_points_days": renew["points_days"],
+            "renew_check_ex_enabled": renew["check_ex_enabled"],
+            "renew_low_activity_enabled": renew["low_activity_enabled"],
+            "renew_activity_check_days": renew["activity_check_days"],
         },
     }
 
@@ -221,9 +234,13 @@ async def homepage_config(user=Depends(get_current_webapp_user)):
             },
             "renew": {
                 "mode": renew["mode"],
+                "code_enabled": renew["code_enabled"],
                 "points_enabled": renew["points_enabled"],
                 "points_cost": renew["points_cost"],
                 "points_days": renew["points_days"],
+                "check_ex_enabled": renew["check_ex_enabled"],
+                "low_activity_enabled": renew["low_activity_enabled"],
+                "activity_check_days": renew["activity_check_days"],
             },
         },
     }

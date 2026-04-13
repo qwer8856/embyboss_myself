@@ -26,9 +26,13 @@ const state = {
   renew: {
     mode: "code",
     activeTab: null,
+    codeEnabled: true,
     pointsEnabled: false,
     pointsCost: 300,
     pointsDays: 30,
+    checkExEnabled: false,
+    lowActivityEnabled: false,
+    activityCheckDays: 30,
   },
   turnstile: {
     enabled: false,
@@ -825,18 +829,19 @@ function updateActivateSheet(profile = state.profile) {
 }
 
 function getRenewMode(profile = state.profile) {
-  if (profile?.has_account === false) return "code";
-  const profileMode = String(profile?.renew_mode || "").toLowerCase();
-  if (profileMode === "points" || profileMode === "code") return profileMode;
-  const stateMode = String(state.renew.mode || "").toLowerCase();
-  if (stateMode === "points" || stateMode === "code") return stateMode;
-  return state.renew.pointsEnabled ? "points" : "code";
+  void profile;
+  return "code";
 }
 
 function getRedeemActiveTab(profile = state.profile) {
   const current = String(state.renew.activeTab || "").toLowerCase();
-  if (current === "points" || current === "code") {
-    if (!profile?.has_account && current === "points") return "code";
+  const hasAccount = Boolean(profile?.has_account);
+  const pointsEnabled = Boolean(profile?.renew_points_enabled ?? state.renew.pointsEnabled);
+  const activityEnabled = Boolean(profile?.renew_low_activity_enabled ?? state.renew.lowActivityEnabled);
+  if (current === "points" || current === "code" || current === "activity") {
+    if (!hasAccount && current !== "code") return "code";
+    if (current === "points" && !pointsEnabled) return "code";
+    if (current === "activity" && !activityEnabled) return "code";
     return current;
   }
   return getRenewMode(profile);
@@ -1005,9 +1010,13 @@ async function loadHomepageConfig() {
     state.renew.mode = String(data.renew?.mode || state.renew.mode || "code").toLowerCase() === "points"
       ? "points"
       : "code";
+    state.renew.codeEnabled = Boolean(data.renew?.code_enabled ?? state.renew.codeEnabled ?? true);
     state.renew.pointsEnabled = Boolean(data.renew?.points_enabled ?? state.renew.pointsEnabled);
     state.renew.pointsCost = Number(data.renew?.points_cost ?? state.renew.pointsCost ?? 300);
     state.renew.pointsDays = Number(data.renew?.points_days ?? state.renew.pointsDays ?? 30);
+    state.renew.checkExEnabled = Boolean(data.renew?.check_ex_enabled ?? state.renew.checkExEnabled);
+    state.renew.lowActivityEnabled = Boolean(data.renew?.low_activity_enabled ?? state.renew.lowActivityEnabled);
+    state.renew.activityCheckDays = Number(data.renew?.activity_check_days ?? state.renew.activityCheckDays ?? 30);
     state.turnstile.enabled = Boolean(data.turnstile?.enabled);
     state.turnstile.siteKey = data.turnstile?.site_key || null;
     renderTurnstileWidget();
@@ -1669,9 +1678,13 @@ async function loadUserStatus() {
   state.renew.mode = String(profile.renew_mode ?? state.renew.mode ?? "code").toLowerCase() === "points"
     ? "points"
     : "code";
+  state.renew.codeEnabled = Boolean(profile.renew_code_enabled ?? state.renew.codeEnabled ?? true);
   state.renew.pointsEnabled = Boolean(profile.renew_points_enabled ?? state.renew.pointsEnabled);
   state.renew.pointsCost = Number(profile.renew_points_cost ?? state.renew.pointsCost ?? 300);
   state.renew.pointsDays = Number(profile.renew_points_days ?? state.renew.pointsDays ?? 30);
+  state.renew.checkExEnabled = Boolean(profile.renew_check_ex_enabled ?? state.renew.checkExEnabled);
+  state.renew.lowActivityEnabled = Boolean(profile.renew_low_activity_enabled ?? state.renew.lowActivityEnabled);
+  state.renew.activityCheckDays = Number(profile.renew_activity_check_days ?? state.renew.activityCheckDays ?? 30);
   setMoneyLabelText(profile);
   updateCheckinBalance(profile.points ?? 0);
   const tgUser = state.me?.tg_user || {};
@@ -2072,6 +2085,14 @@ function bindForms() {
     redeemModePointsBtn.addEventListener("click", () => {
       setRedeemActiveTab("points");
       renderResult("redeem-sheet-result", null, "等待续期");
+    });
+  }
+
+  const redeemModeActivityBtn = document.getElementById("redeem-mode-activity-btn");
+  if (redeemModeActivityBtn) {
+    redeemModeActivityBtn.addEventListener("click", () => {
+      setRedeemActiveTab("activity");
+      renderResult("redeem-sheet-result", null, getRedeemPendingText());
     });
   }
 
@@ -3119,6 +3140,138 @@ showView = function (...args) {
   syncFloatingNoAccountAlert();
   return result;
 };
+
+// Renew center behavior override:
+// 1) three tabs in one row: code / points / activity
+// 2) code is always available
+// 3) points & activity availability follow bot settings
+function getRedeemPendingText(profile = state.profile) {
+  const tab = getRedeemActiveTab(profile);
+  if (tab === "points") return "等待续期";
+  if (tab === "activity") return "等待保号";
+  return "等待兑换";
+}
+
+function setRedeemActiveTab(tab, profile = state.profile) {
+  const raw = String(tab || "").toLowerCase();
+  let next = "code";
+  if (raw === "points") next = "points";
+  if (raw === "activity") next = "activity";
+
+  const hasAccount = Boolean(profile?.has_account);
+  const pointsEnabled = Boolean(profile?.renew_points_enabled ?? state.renew.pointsEnabled);
+  const activityEnabled = Boolean(profile?.renew_low_activity_enabled ?? state.renew.lowActivityEnabled);
+
+  if (!hasAccount && next !== "code") next = "code";
+  if (next === "points" && !pointsEnabled) next = "code";
+  if (next === "activity" && !activityEnabled) next = "code";
+
+  state.renew.activeTab = next;
+  updateRenewSheet(profile);
+}
+
+function updateRenewSheet(profile = state.profile) {
+  const titleEl = document.getElementById("redeem-sheet-title");
+  const descEl = document.querySelector("#redeem-sheet .redeem-sheet-desc");
+  const modeCodeBtn = document.getElementById("redeem-mode-code-btn");
+  const modePointsBtn = document.getElementById("redeem-mode-points-btn");
+  const modeActivityBtn = document.getElementById("redeem-mode-activity-btn");
+  const modeWrap = document.getElementById("redeem-mode-switch");
+  const formEl = document.getElementById("redeem-sheet-form");
+  const pointsWrap = document.getElementById("redeem-points-actions");
+  const activityWrap = document.getElementById("redeem-activity-actions");
+  const pointsMetaEl = document.getElementById("redeem-points-meta");
+  const activityMetaEl = document.getElementById("redeem-activity-meta");
+  const pointsBtn = document.getElementById("redeem-points-btn");
+  const redeemTurnstileWrap = document.getElementById("redeem-turnstile-wrap");
+
+  const hasAccount = Boolean(profile?.has_account);
+  const moneyLabel = getMoneyLabel(profile);
+  const codeEnabled = Boolean(profile?.renew_code_enabled ?? state.renew.codeEnabled ?? true);
+  const pointsEnabled = Boolean(profile?.renew_points_enabled ?? state.renew.pointsEnabled);
+  const pointsCost = Number(profile?.renew_points_cost ?? state.renew.pointsCost ?? 300);
+  const pointsDays = Number(profile?.renew_points_days ?? state.renew.pointsDays ?? 30);
+  const checkExEnabled = Boolean(profile?.renew_check_ex_enabled ?? state.renew.checkExEnabled);
+  const lowActivityEnabled = Boolean(profile?.renew_low_activity_enabled ?? state.renew.lowActivityEnabled);
+  const activityCheckDays = Number(profile?.renew_activity_check_days ?? state.renew.activityCheckDays ?? 30);
+  const points = Number(profile?.points ?? 0);
+
+  let mode = getRedeemActiveTab(profile);
+  if (mode === "points" && (!hasAccount || !pointsEnabled)) mode = "code";
+  if (mode === "activity" && (!hasAccount || !lowActivityEnabled)) mode = "code";
+  state.renew.activeTab = mode;
+
+  if (titleEl) titleEl.textContent = "续费中心";
+  if (descEl) {
+    const policy = `续期码：开启；积分续期：${pointsEnabled ? "开启" : "关闭"}；活跃续期：${lowActivityEnabled ? "开启" : "关闭"}`;
+    if (mode === "points") {
+      descEl.textContent = `按管理员规则消耗积分续期。${policy}`;
+    } else if (mode === "activity") {
+      descEl.textContent = `活跃续期由 Bot 定时任务自动保号。${policy}`;
+    } else {
+      descEl.textContent = `输入兑换码后立即生效，注册码和续期码均支持。${policy}`;
+    }
+  }
+
+  if (modeWrap) modeWrap.hidden = false;
+  if (modeCodeBtn) {
+    modeCodeBtn.classList.toggle("active", mode === "code");
+    modeCodeBtn.setAttribute("aria-pressed", mode === "code" ? "true" : "false");
+    modeCodeBtn.disabled = !codeEnabled;
+  }
+  if (modePointsBtn) {
+    modePointsBtn.classList.toggle("active", mode === "points");
+    modePointsBtn.setAttribute("aria-pressed", mode === "points" ? "true" : "false");
+    modePointsBtn.disabled = !hasAccount || !pointsEnabled;
+  }
+  if (modeActivityBtn) {
+    modeActivityBtn.classList.toggle("active", mode === "activity");
+    modeActivityBtn.setAttribute("aria-pressed", mode === "activity" ? "true" : "false");
+    modeActivityBtn.disabled = !hasAccount || !lowActivityEnabled;
+  }
+
+  if (formEl) formEl.hidden = mode !== "code";
+  if (pointsWrap) pointsWrap.hidden = mode !== "points";
+  if (activityWrap) activityWrap.hidden = mode !== "activity";
+
+  const shouldShowRedeemTurnstile = mode === "code" || mode === "points";
+  if (redeemTurnstileWrap) {
+    if (!state.turnstile.enabled || !state.turnstile.siteKey || !shouldShowRedeemTurnstile) {
+      redeemTurnstileWrap.classList.add("hidden");
+    } else {
+      redeemTurnstileWrap.classList.remove("hidden");
+    }
+  }
+
+  let tip = `消耗 ${pointsCost}${moneyLabel} 可续期 ${pointsDays} 天。`;
+  let canRenew = hasAccount && pointsEnabled && points >= pointsCost;
+  if (!hasAccount) {
+    tip = "你还没有 Emby 账户，暂时无法续期。";
+    canRenew = false;
+  } else if (!pointsEnabled) {
+    tip = "管理员未开启积分续期。";
+    canRenew = false;
+  } else if (points < pointsCost) {
+    tip = `积分不足，需要 ${pointsCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
+    canRenew = false;
+  }
+  if (pointsMetaEl) pointsMetaEl.textContent = tip;
+  if (pointsBtn) {
+    pointsBtn.disabled = !canRenew;
+    pointsBtn.textContent = "立即续期";
+  }
+
+  if (activityMetaEl) {
+    if (!hasAccount) {
+      activityMetaEl.textContent = "你还没有 Emby 账户，暂时无法使用活跃续期。";
+    } else if (!lowActivityEnabled) {
+      activityMetaEl.textContent = "管理员未开启活跃续期（低活跃检测）。";
+    } else {
+      const checkExText = checkExEnabled ? "到期检测已开启" : "到期检测未开启";
+      activityMetaEl.textContent = `活跃续期已开启（${activityCheckDays}天活跃检测）。${checkExText}。该模式由 Bot 定时任务自动执行，无需手动提交。`;
+    }
+  }
+}
 
 async function bootstrap() {
   try {

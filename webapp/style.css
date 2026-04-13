@@ -336,7 +336,7 @@ body.sheet-open .floating-home-alert {
 
 .redeem-mode-switch {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -345,12 +345,12 @@ body.sheet-open .floating-home-alert {
   width: 100%;
   min-width: 0;
   min-height: 40px;
-  padding: 9px 12px;
+  padding: 8px 8px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #f3f4f6;
   color: #6b7280;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.2;
   box-shadow: none;
@@ -388,7 +388,8 @@ body.sheet-open .floating-home-alert {
 
 #redeem-mode-switch[hidden],
 #redeem-sheet-form[hidden],
-#redeem-points-actions[hidden] {
+#redeem-points-actions[hidden],
+#redeem-activity-actions[hidden] {
   display: none !important;
 }
 
@@ -2599,8 +2600,8 @@ select,
 
   #redeem-sheet .redeem-mode-btn {
     min-height: 36px;
-    padding: 8px 10px;
-    font-size: 13px;
+    padding: 8px 6px;
+    font-size: 12px;
    }
 
   .home-remain-title {
