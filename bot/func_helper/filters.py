@@ -5,18 +5,6 @@ from bot import admins, owner, group, LOGGER
 from pyrogram.enums import ChatMemberStatus
 
 
-def _as_chat_ref(value):
-    if isinstance(value, int):
-        return value
-    text = str(value).strip()
-    if text.lstrip("-").isdigit():
-        try:
-            return int(text)
-        except ValueError:
-            pass
-    return text
-
-
 # async def owner_filter(client, update):
 #     """
 #     过滤 owner
@@ -61,7 +49,7 @@ async def user_in_group_filter(client, update):
     uid = uid.id
     for i in group:
         try:
-            u = await client.get_chat_member(chat_id=_as_chat_ref(i), user_id=uid)
+            u = await client.get_chat_member(chat_id=int(i), user_id=uid)
             if u.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER, ChatMemberStatus.OWNER]:
                 return True
         except ValueError:
@@ -89,7 +77,7 @@ async def user_in_group_on_filter(filt, client, update):
         return True
     for i in group:
         try:
-            u = await client.get_chat_member(chat_id=_as_chat_ref(i), user_id=uid)
+            u = await client.get_chat_member(chat_id=int(i), user_id=uid)
             if u.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER,
                             ChatMemberStatus.OWNER]:  # 移除了 'ChatMemberStatus.RESTRICTED' 防止有人进群直接注册不验证
                 return True  # 因为被限制用户无法使用bot，所以需要检查权限。

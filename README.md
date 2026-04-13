@@ -73,19 +73,17 @@ python main.py
 
 ## 关键配置说明
 
-### `group` 支持两种写法
+### `group` 配置
 
-现在支持：
+仅支持数字群 ID：
 
 - 数字群 ID：`-1001234567890`
-- 群用户名：`"@your_group_username"`
 
 示例：
 
 ```json
 "group": [
-  -1001234567890,
-  "@your_group_username"
+  -1001234567890
 ]
 ```
 
@@ -125,7 +123,7 @@ docker compose up -d --force-recreate embyboss
 ### 1) `Peer id invalid`
 
 通常是 `group` 配置不正确或当前 Pyrogram 对该标识不可识别。  
-请检查 `config.json` 中 `group` 项，优先使用可访问的 `@群用户名` 或正确的 `-100...` 群 ID。
+请检查 `config.json` 中 `group` 项，使用正确的 `-100...` 群 ID。
 
 ### 2) `AUTH_KEY_UNREGISTERED`
 
