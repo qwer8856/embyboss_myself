@@ -813,35 +813,39 @@ button:disabled {
 .home-points-panel {
   position: relative;
   overflow: hidden;
-  border-color: #eedfbf;
+  padding: 18px 18px 16px;
+  border-color: #dde5f2;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.12), transparent 34%),
-    linear-gradient(180deg, #fffdf8 0%, #fff6ea 100%);
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  box-shadow: var(--shadow-soft);
 }
 
 .home-points-panel::before {
   content: "";
   position: absolute;
-  top: -54px;
-  right: -18px;
-  width: 144px;
-  height: 144px;
+  top: -52px;
+  right: -26px;
+  width: 158px;
+  height: 158px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.16) 0%, rgba(245, 158, 11, 0) 70%);
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0) 72%);
   pointer-events: none;
 }
 
 .home-points-title {
   position: relative;
   z-index: 1;
-  display: block;
-  min-height: 26px;
-  padding-top: 16px;
-  padding-right: 88px;
-  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: auto;
+  padding: 0;
+  font-size: 18px;
   font-weight: 800;
-  color: #1f2d45;
+  color: #404754;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .home-points-title::before {
@@ -854,6 +858,20 @@ button:disabled {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  content: "";
+  position: static;
+  top: auto;
+  left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #d8deec;
+  background:
+    radial-gradient(circle at 36% 34%, #ffffff 0%, #ffffff 24%, transparent 25%),
+    radial-gradient(circle at 58% 58%, #e8eefc 0%, #e8eefc 34%, #f5f7ff 35%, #f5f7ff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 6px 14px rgba(60, 72, 104, 0.08);
 }
 
 .home-points-title::after {
@@ -874,79 +892,282 @@ button:disabled {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 10px rgba(190, 127, 19, 0.08);
+  display: none;
 }
 
 .home-points-panel.checked .home-points-title::after {
   border-color: #d8dee8;
   background: #eef2f7;
   color: #637084;
+  display: none;
 }
 
 .home-points-value {
   position: relative;
   z-index: 1;
-  margin-top: 14px;
-  min-height: 112px;
-  padding: 18px 16px 16px;
-  border-radius: 18px;
-  border: 1px solid #efdca4;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 246, 227, 0.98) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.86),
-    0 12px 24px rgba(190, 127, 19, 0.08);
+  width: min(122px, 42%);
+  margin-top: 18px;
+  min-height: 66px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #ebe4ff;
+  background: linear-gradient(180deg, #f3ecff 0%, #ece3ff 100%);
+  box-shadow: none;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 6px;
-  font-size: clamp(34px, 7.4vw, 48px);
+  gap: 4px;
+  font-size: clamp(20px, 4.8vw, 28px);
   font-weight: 800;
   line-height: 1;
-  color: #17233b;
+  color: #5c47b7;
   font-variant-numeric: tabular-nums;
 }
 
 .home-points-value::before {
   content: "当前余额";
   display: block;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #9c741e;
+  letter-spacing: 0.04em;
+  color: #8e82bb;
+  content: "当前余额";
 }
 
 .home-points-panel .home-divider {
-  display: none;
+  display: block;
+  margin: 14px 0 0;
+  border-top: 1px solid #e7ebf3;
 }
 
 .home-points-btn {
   position: relative;
   z-index: 1;
-  margin-top: 14px;
-  background: linear-gradient(135deg, #f0b44b 0%, #df9823 100%);
-  color: #fffdf7;
-  box-shadow: 0 10px 22px rgba(190, 127, 19, 0.22);
+  height: 54px;
+  margin-top: 16px;
+  background: linear-gradient(135deg, #7c35f7 0%, #9348ff 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.22);
 }
 
 .home-points-btn:hover {
-  box-shadow: 0 12px 24px rgba(190, 127, 19, 0.28);
+  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.28);
 }
 
 .home-points-btn.is-checked {
-  background: #d6dbe3;
-  color: #5d6678;
+  background: #e8edf5;
+  color: #657186;
   box-shadow: none;
 }
 
 .home-points-meta {
   position: relative;
   z-index: 1;
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #8a93a7;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* Home checkin panel layout redesign */
+.home-points-panel {
+  padding: 18px 18px 16px;
+  border-color: #d7dfef;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.1), transparent 40%),
+    linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+}
+
+.home-points-panel::before {
+  top: -54px;
+  right: -30px;
+  width: 170px;
+  height: 170px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.11) 0%, rgba(124, 58, 237, 0) 74%);
+}
+
+.home-points-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-points-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #3b4352;
+}
+
+.home-points-title::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #d6deed;
+  background:
+    radial-gradient(circle at 36% 34%, #ffffff 0%, #ffffff 24%, transparent 25%),
+    radial-gradient(circle at 58% 58%, #e8eefc 0%, #e8eefc 34%, #f5f7ff 35%, #f5f7ff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 6px 14px rgba(60, 72, 104, 0.08);
+}
+
+.home-points-title::after {
+  content: none !important;
+  display: none !important;
+}
+
+.home-points-state {
+  flex: 0 0 auto;
+  min-width: 84px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #d8e2f3;
+  background: linear-gradient(180deg, #edf2fa 0%, #e4eaf4 100%);
+  color: #617089;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-points-panel.checked .home-points-state {
+  background: linear-gradient(180deg, #e8edf5 0%, #e0e6f1 100%);
+  border-color: #d3dce9;
+  color: #5f6e85;
+}
+
+.home-points-balance-wrap {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #e6dcff;
+  background: linear-gradient(180deg, #efe7ff 0%, #e7ddff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.home-points-balance-label {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #7b6bbb;
+}
+
+.home-points-value {
+  width: min(170px, 58%);
+  min-height: 92px;
+  margin-top: 0;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  border: 1px solid #e6dcff;
+  background: linear-gradient(180deg, #eee5ff 0%, #e9deff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  gap: 8px;
+  font-size: clamp(30px, 6vw, 40px);
+  color: #5e47b7;
+}
+
+.home-points-value::before {
+  content: "当前余额";
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #7f71bc;
+}
+
+.home-points-panel .home-divider {
+  display: block;
+  margin: 14px 0 0;
+  border-top: 1px solid #e4eaf3;
+}
+
+.home-points-btn {
+  height: 58px;
+  margin-top: 14px;
+  background: linear-gradient(135deg, #7f39f7 0%, #944bff 100%);
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.2);
+}
+
+.home-points-btn:hover {
+  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.27);
+}
+
+.home-points-btn.is-checked {
+  background: #b7bec9;
+  color: #3f4b61;
+  box-shadow: none;
+}
+
+.home-points-meta {
   margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid #eee2c7;
-  background: rgba(255, 255, 255, 0.72);
-  color: #7a6650;
-  line-height: 1.45;
+  font-size: 12px;
+  color: #8995a8;
+}
+
+.home-points-panel .home-points-balance-wrap {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #e6dcff;
+  background: linear-gradient(180deg, #efe7ff 0%, #e7ddff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.home-points-panel .home-points-balance-label {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #7b6bbb;
+}
+
+.home-points-panel .home-points-value {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: block;
+  font-size: clamp(28px, 6vw, 34px);
+  line-height: 1;
+  font-weight: 800;
+  color: #5e47b7;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-points-panel .home-points-value::before {
+  content: none !important;
+  display: none !important;
 }
 
 .home-remain-panel {
@@ -2225,6 +2446,21 @@ select,
   border-radius: 999px;
 }
 
+/* Remain panel copy + banned state emphasis */
+.home-remain-title-main > span:last-of-type::before {
+  content: "账号状态";
+}
+
+.home-remain-title::after {
+  content: "当前";
+}
+
+.home-remain-display .remain-text-danger {
+  border-color: #f3c7d1;
+  background: linear-gradient(180deg, #fff5f8 0%, #ffedf2 100%);
+  color: #cf3f5f;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2411,32 +2647,29 @@ select,
   }
 
   .home-points-title {
-    font-size: 20px;
-    min-height: 24px;
-    padding-top: 15px;
-    padding-right: 78px;
+    gap: 10px;
+    font-size: 17px;
+    padding: 0;
   }
 
   .home-points-title::after {
-    min-width: 64px;
-    height: 24px;
-    padding: 0 9px;
-    font-size: 11px;
+    display: none;
   }
 
   .home-points-value {
-    min-height: 96px;
-    padding: 16px 14px 14px;
-    border-radius: 15px;
-    font-size: clamp(30px, 8vw, 42px);
+    width: min(114px, 48%);
+    min-height: 62px;
+    padding: 9px 10px;
+    border-radius: 13px;
+    font-size: clamp(18px, 5.6vw, 24px);
   }
 
   .home-points-value::before {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .home-points-meta {
-    padding: 9px 11px;
+    padding: 0;
     font-size: 12px;
   }
 
@@ -2490,5 +2723,51 @@ select,
     width: 42px;
     height: 42px;
     border-radius: 11px;
+  }
+
+  .home-points-panel {
+    padding: 16px 14px 14px;
+  }
+
+  .home-points-title {
+    gap: 10px;
+    font-size: 17px;
+  }
+
+  .home-points-title::before {
+    width: 25px;
+    height: 25px;
+  }
+
+  .home-points-state {
+    min-width: 70px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .home-points-panel .home-points-balance-wrap {
+    margin-top: 12px;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .home-points-panel .home-points-balance-label {
+    font-size: 12px;
+  }
+
+  .home-points-panel .home-points-value {
+    font-size: clamp(24px, 7vw, 30px);
+  }
+
+  .home-points-btn {
+    height: 50px;
+    margin-top: 12px;
+  }
+
+  .home-points-meta {
+    margin-top: 10px;
+    font-size: 12px;
   }
 }

@@ -167,7 +167,7 @@ class Config(BaseModel):
     owner_api: int
     owner_hash: str
     owner: int
-    group: List[int]
+    group: List[Union[int, str]]
     main_group: str
     chanel: str
     bot_photo: str

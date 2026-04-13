@@ -124,20 +124,33 @@ function getLineByLevel(profile = state.profile) {
   return normalLine || "普通线路";
 }
 
-function parseNamedLine(rawLine, fallbackName) {
+const SERVICE_LINE_URL_PATTERN = /(https?:\/\/\S+|[\w.-]+\.[a-z]{2,}(?::\d+)?(?:\/\S*)?)/i;
+
+function findServiceLineUrl(text) {
+  const match = String(text || "").trim().match(SERVICE_LINE_URL_PATTERN);
+  return match ? match[0].trim() : "";
+}
+
+function cleanServiceLineName(text) {
+  return String(text || "")
+    .replace(/^[\s:：|,，;；、]+/, "")
+    .replace(/[\s:：|,，;；、]+$/g, "")
+    .trim();
+}
+
+function parseNamedLine(rawLine, fallbackName, titleOverride = "") {
   const text = String(rawLine || "").trim();
   if (!text) return null;
-  const urlMatch = text.match(/(https?:\/\/\S+|[\w.-]+\.[a-z]{2,}(?::\d+)?(?:\/\S*)?)/i);
-  if (!urlMatch) {
-    return { name: fallbackName, url: text };
+  const url = findServiceLineUrl(text);
+  if (!url) {
+    return {
+      name: cleanServiceLineName(titleOverride) || fallbackName,
+      url: text,
+    };
   }
-  const url = urlMatch[0].trim();
-  const name = text
-    .replace(url, "")
-    .replace(/^[\s:：|｜\-—_,，]+|[\s:：|｜\-—_,，]+$/g, "")
-    .trim();
+  const inlineName = cleanServiceLineName(text.replace(url, ""));
   return {
-    name: name || fallbackName,
+    name: cleanServiceLineName(titleOverride) || inlineName || fallbackName,
     url,
   };
 }
@@ -147,23 +160,43 @@ function parseLineList(raw, baseName) {
     .split(/\r?\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines
-    .map((line, index) => {
-      const fallbackName = lines.length > 1 ? `${baseName} ${index + 1}` : baseName;
-      return parseNamedLine(line, fallbackName);
-    })
-    .filter(Boolean);
+  const items = [];
+  const pendingTitles = [];
+
+  lines.forEach((line) => {
+    const url = findServiceLineUrl(line);
+    if (!url) {
+      pendingTitles.push(line);
+      return;
+    }
+
+    const fallbackName = lines.length > 1 ? `${baseName} ${items.length + 1}` : baseName;
+    const titleText = pendingTitles.length ? pendingTitles.join(" / ") : "";
+    const parsed = parseNamedLine(line, fallbackName, titleText);
+    if (parsed) items.push(parsed);
+    pendingTitles.length = 0;
+  });
+
+  if (pendingTitles.length) {
+    pendingTitles.forEach((line, index) => {
+      const fallbackName = `${baseName} ${items.length + index + 1}`;
+      const parsed = parseNamedLine(line, fallbackName);
+      if (parsed) items.push(parsed);
+    });
+  }
+
+  return items;
 }
 
 function getServiceLineItems(profile = state.profile) {
   const normalLine = String(profile?.emby_line || "").trim();
   const whitelistLine = String(profile?.emby_whitelist_line || "").trim();
+  const normalItems = parseLineList(normalLine, "普通线路");
+  const whitelistItems = parseLineList(whitelistLine, "白名单线路");
   if (profile?.lv === "a") {
-    const whitelistItems = parseLineList(whitelistLine, "白名单线路");
-    if (whitelistItems.length) return whitelistItems;
-    return parseLineList(normalLine, "普通线路");
+    return [...whitelistItems, ...normalItems];
   }
-  return parseLineList(normalLine, "普通线路");
+  return normalItems;
 }
 
 function setNotice(text, isError = false) {
@@ -437,6 +470,55 @@ function buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt) 
     return {
       countdown: false,
       html: `<span class="remain-text">${escapeHtml(stateData.text)}</span>`,
+    };
+  }
+  return {
+    countdown: true,
+    html: `
+      <span class="remain-seg"><span class="remain-num">${pad2(stateData.months)}</span><span class="remain-unit">月</span></span>
+      <span class="remain-seg"><span class="remain-num">${pad2(stateData.days)}</span><span class="remain-unit">天</span></span>
+      <span class="remain-seg"><span class="remain-num">${pad2(stateData.hours)}</span><span class="remain-unit">小时</span></span>
+      <span class="remain-seg"><span class="remain-num">${pad2(stateData.minutes)}</span><span class="remain-unit">分钟</span></span>
+      <span class="remain-seg"><span class="remain-num">${pad2(stateData.seconds)}</span><span class="remain-unit">秒</span></span>
+    `,
+  };
+}
+
+// Override remain copy and style marker with cleaner wording.
+function getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt) {
+  if (!hasAccount) return { countdown: false, text: "请先开通账号" };
+  if (isWhitelist) return { countdown: false, text: "白名单长期可用" };
+  if (!expiresAt || Number.isNaN(expiresAt.getTime())) return { countdown: false, text: "暂未设置有效期" };
+  if (isDisabled) return { countdown: false, text: "您已被封禁", tone: "danger" };
+
+  const diffMs = expiresAt.getTime() - Date.now();
+  if (diffMs <= 0) return { countdown: false, text: "账号已到期" };
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const totalDays = Math.floor(totalSeconds / 86400);
+  const months = Math.floor(totalDays / 30);
+  const days = totalDays % 30;
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    countdown: true,
+    months,
+    days,
+    hours,
+    minutes,
+    seconds,
+  };
+}
+
+function buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt) {
+  const stateData = getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt);
+  if (!stateData.countdown) {
+    const textClass = stateData.tone === "danger" ? "remain-text remain-text-danger" : "remain-text";
+    return {
+      countdown: false,
+      html: `<span class="${textClass}">${escapeHtml(stateData.text)}</span>`,
     };
   }
   return {
@@ -1600,9 +1682,14 @@ async function loadUserStatus() {
   const hasAccount = Boolean(profile.has_account);
   const isDisabled = profile.lv === "c";
   const isAvailable = hasAccount && (isWhitelist || (!isExpired && !isDisabled));
+  const canRenewAccount = hasAccount && !isWhitelist;
+  const primaryAction = hasAccount ? (canRenewAccount ? "open-redeem" : "") : "open-activate";
+  const primaryActionLabel = !hasAccount ? "启用Emby" : isWhitelist ? "白名单已启用" : "Emby已启用";
+  const showRemainActionButton = !hasAccount || canRenewAccount;
   const userState = !hasAccount ? "未注册" : isWhitelist ? "白名单" : isDisabled ? "已封禁" : isExpired ? "已到期" : "正常";
   const embyState = isAvailable ? "可用" : "不可用";
   const remainDisplay = buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt);
+  const showExpireLine = !isWhitelist;
   const expireLine = hasAccount && profile.expires_at
     ? `到期时间：${escapeHtml(toDisplayTime(profile.expires_at))}`
     : "注册后可查看到期时间";
@@ -1740,14 +1827,22 @@ async function loadUserStatus() {
           </span>
         </div>
         <div id="home-remain-value" class="home-remain-display ${remainDisplay.countdown ? "is-countdown" : "is-text"}">${remainDisplay.html}</div>
+        ${showExpireLine ? `
         <div class="home-divider"></div>
         <div class="home-muted-line">${escapeHtml(expireLine)}</div>
-        <button type="button" class="home-primary-btn" data-action="${hasAccount ? "open-redeem" : "open-activate"}">${hasAccount ? "前往续费" : "启用Emby"}</button>
+        ` : ""}
+        ${showRemainActionButton ? `<button type="button" class="home-primary-btn" data-action="${hasAccount ? "open-redeem" : "open-activate"}">${hasAccount ? "前往续费" : "启用Emby"}</button>` : ""}
       </div>
 
       <div class="home-panel home-points-panel ${checkedToday ? "checked" : ""}">
-        <div class="home-panel-title home-points-title" data-state-label="${homeCheckinBadgeText}">花币</div>
-        <div class="home-value-chip home-points-value">${escapeHtml(profile.points ?? 0)}</div>
+        <div class="home-points-head">
+          <div class="home-panel-title home-points-title">${escapeHtml(moneyLabel)}</div>
+          <span class="home-points-state">${escapeHtml(homeCheckinBadgeText)}</span>
+        </div>
+        <div class="home-points-balance-wrap">
+          <div class="home-points-balance-label">当前余额</div>
+          <div class="home-points-value">${escapeHtml(profile.points ?? 0)}</div>
+        </div>
         <div class="home-divider"></div>
         <button type="button" class="home-primary-btn home-points-btn ${checkedToday ? "is-checked" : ""}" data-action="open-checkin" ${checkedToday ? "disabled" : ""}>${homeCheckinBtnText}</button>
         <div id="home-checkin-last" class="home-checkin-meta home-points-meta">最近签到：${escapeHtml(homeCheckinLast)}</div>
@@ -1756,7 +1851,7 @@ async function loadUserStatus() {
       <div class="home-panel">
         <div class="home-panel-title">操作</div>
         <div class="home-action-grid">
-          <button type="button" class="home-action-btn primary" data-action="${hasAccount ? "open-redeem" : "open-activate"}">${hasAccount ? "Emby已启用" : "启用Emby"}</button>
+          <button type="button" class="home-action-btn primary" ${primaryAction ? `data-action="${primaryAction}"` : "disabled"}>${primaryActionLabel}</button>
           <button type="button" class="home-action-btn secondary" data-action="open-invite" ${inviteCanOpen ? "" : "disabled"}>${inviteBtnLabel}</button>
         </div>
       </div>
@@ -1795,10 +1890,19 @@ async function loadUserStatus() {
   if (embyMiniTitle) {
     embyMiniTitle.textContent = "Emby状态";
   }
+  const remainTitleText = document.querySelector("#user-status-data .home-remain-title-main > span:last-of-type");
+  if (remainTitleText) {
+    remainTitleText.textContent = "账号可用状态";
+  }
   const sidebarAccountBtn = document.querySelector('.sidebar button[data-role="account-action"]');
   if (sidebarAccountBtn) {
-    sidebarAccountBtn.dataset.action = hasAccount ? "open-redeem" : "open-activate";
-    sidebarAccountBtn.textContent = hasAccount ? "前往续费" : "启用 Emby";
+    if (primaryAction) {
+      sidebarAccountBtn.dataset.action = primaryAction;
+    } else {
+      sidebarAccountBtn.removeAttribute("data-action");
+    }
+    sidebarAccountBtn.textContent = !hasAccount ? "启用 Emby" : isWhitelist ? "白名单已启用" : "前往续费";
+    sidebarAccountBtn.disabled = !primaryAction;
   }
   const embyPasswordForm = document.getElementById("emby-password-form");
   if (embyPasswordForm) {
