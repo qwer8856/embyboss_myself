@@ -62,10 +62,15 @@ async def p_start(_, msg):
                 return await sendMessage(msg, '💢 你不是管理员，无法使用此命令')
         if u in f'{ranks.logo}' or u == str(msg.from_user.id):
             if webapp.status and webapp.url:
+                raw_code = str(msg.command[1]).strip()
+                is_renew_code = "Renew" in raw_code
+                target_view = "redeem-center" if is_renew_code else "activate"
+                target_text = "🛡️ 前往 CF 验证兑换" if is_renew_code else "🚀 前往启用 Emby"
+                tip_text = "请在网页中完成 CF 验证后再兑换。" if is_renew_code else "请在网页中先使用注册码，再填写信息完成启用。"
                 await sendMessage(
                     msg,
-                    f"检测到你要使用兑换码：{msg.command[1]}\n请点击下方按钮前往面板，在网页中完成 CF 验证后再兑换。",
-                    buttons=webapp_panel_ikb("🛡️ 前往 CF 验证兑换", "redeem-center"),
+                    f"检测到你要使用兑换码：{raw_code}\n{tip_text}",
+                    buttons=webapp_panel_ikb(target_text, target_view),
                 )
                 await msg.delete()
             else:
