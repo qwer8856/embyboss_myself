@@ -262,6 +262,21 @@ body.sheet-open .floating-home-alert {
   transition: transform 0.22s ease;
 }
 
+/* When Turnstile is disabled, enlarge bottom sheets instead of lifting them. */
+body.no-turnstile .redeem-sheet-panel,
+body.no-turnstile .checkin-sheet-panel {
+  min-height: 240px;
+}
+
+body.no-turnstile .checkin-sheet .checkin-sheet-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+body.no-turnstile .checkin-sheet-panel #checkin-btn {
+  margin-top: auto;
+}
+
 .redeem-sheet.open .redeem-sheet-panel,
 .checkin-sheet.open .checkin-sheet-panel {
   transform: translateY(0);
@@ -2692,6 +2707,11 @@ select,
     right: 10px;
     bottom: 10px;
     border-radius: 16px;
+  }
+
+  body.no-turnstile .redeem-sheet-panel,
+  body.no-turnstile .checkin-sheet-panel {
+    min-height: 220px;
   }
 
   .redeem-sheet-form {

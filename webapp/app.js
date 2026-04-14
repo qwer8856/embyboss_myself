@@ -58,6 +58,11 @@ const VIEW_ALIASES = {
   "stats-panel": "home",
 };
 
+function syncTurnstileLayoutMode() {
+  const noTurnstile = !state.turnstile.enabled;
+  document.body.classList.toggle("no-turnstile", noTurnstile);
+}
+
 function showToast(message, variant = "info", title = "") {
   const root = document.getElementById("toast-root");
   if (!root || !message) return;
@@ -1019,6 +1024,7 @@ async function loadHomepageConfig() {
     state.renew.activityCheckDays = Number(data.renew?.activity_check_days ?? state.renew.activityCheckDays ?? 30);
     state.turnstile.enabled = Boolean(data.turnstile?.enabled);
     state.turnstile.siteKey = data.turnstile?.site_key || null;
+    syncTurnstileLayoutMode();
     renderTurnstileWidget();
     renderRedeemTurnstileWidget();
     updateRenewSheet();
@@ -3275,6 +3281,7 @@ function updateRenewSheet(profile = state.profile) {
 
 async function bootstrap() {
   try {
+    syncTurnstileLayoutMode();
     bindSidebar();
     bindResultModal();
     bindForms();
