@@ -125,7 +125,7 @@
   "webapp": {
     "status": false,
     "title": "Sakura Emby Boss",
-    "url": "https://your-domain.example.com/tgapp",
+    "url": "https://your-domain.example.com/tgapp 必须用https域名格式", 
     "session_ttl_seconds": 3600,
     "auth_max_age_seconds": 86400,
     "banner": {
