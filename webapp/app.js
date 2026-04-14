@@ -46,6 +46,9 @@ const state = {
     redeemRequested: false,
     redeemVerifying: false,
   },
+  activate: {
+    method: "credit",
+  },
 };
 
 const VIEW_GROUPS = {
@@ -220,6 +223,43 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function resolveSafeCode(profile = {}) {
+  const candidates = [profile?.safe_code, profile?.safeCode, profile?.pwd2];
+  for (const item of candidates) {
+    const text = String(item ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function maskSafeCode(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "-") return "-";
+  return "•".repeat(Math.max(text.length, 6));
+}
+
+function toggleSafeCodeVisibility(targetId, buttonEl) {
+  const valueEl = document.getElementById(String(targetId || ""));
+  if (!valueEl || !buttonEl) return;
+  const safeCode = String(valueEl.dataset.safeCode || "").trim();
+  if (!safeCode) {
+    showToast("当前账号未设置安全码", "info");
+    return;
+  }
+
+  const visible = valueEl.dataset.visible === "true";
+  if (visible) {
+    valueEl.textContent = maskSafeCode(safeCode);
+    valueEl.dataset.visible = "false";
+    buttonEl.textContent = "显示";
+    return;
+  }
+
+  valueEl.textContent = safeCode;
+  valueEl.dataset.visible = "true";
+  buttonEl.textContent = "隐藏";
 }
 
 async function copyText(text) {
@@ -1565,6 +1605,10 @@ function bindSidebar() {
     const actionBtn = event.target.closest("[data-action]");
     if (actionBtn) {
       const action = actionBtn.dataset.action;
+      if (action === "toggle-safe-code") {
+        toggleSafeCodeVisibility(actionBtn.dataset.target, actionBtn);
+        return;
+      }
       if (action === "open-redeem") {
         openRedeemSheet();
         setSidebarOpen(false);
@@ -1733,6 +1777,9 @@ async function loadUserStatus() {
   `).join("");
   const accountName = String(profile.name || profile.embyid || "-");
   const accountPassword = String(profile.password || "-");
+  const accountSafeCode = resolveSafeCode(profile);
+  const hasSafeCode = Boolean(accountSafeCode);
+  const safeCodeDisplay = hasSafeCode ? maskSafeCode(accountSafeCode) : "未设置";
   const serviceSub = hasAccount
     ? (isDisabled ? "账号解封后，线路地址会自动恢复显示。" : isExpired ? "账号续费后，线路地址会自动恢复显示。" : isAvailable ? "" : "账号当前不可用。")
     : (showServiceLines ? "当前暂无可用账号，开通后即可使用这些线路地址。" : "请检查账号状态或联系管理员");
@@ -1773,6 +1820,24 @@ async function loadUserStatus() {
                 <div class="home-service-row-link">${escapeHtml(accountPassword)}</div>
               </div>
               <button type="button" class="home-service-copy" data-copy="${escapeHtml(accountPassword)}">复制</button>
+            </div>
+            <div class="home-service-row">
+              <div class="home-service-row-main">
+                <div class="home-service-row-title">安全码</div>
+                <div
+                  id="account-safe-code-value"
+                  class="home-service-row-link"
+                  data-safe-code="${escapeHtml(accountSafeCode)}"
+                  data-visible="false"
+                >${escapeHtml(safeCodeDisplay)}</div>
+              </div>
+              <button
+                type="button"
+                class="home-service-copy"
+                data-action="toggle-safe-code"
+                data-target="account-safe-code-value"
+                ${hasSafeCode ? "" : "disabled"}
+              >${hasSafeCode ? "显示" : "未设置"}</button>
             </div>
           </div>
           <form id="emby-password-form" class="home-password-form">
@@ -2783,7 +2848,20 @@ function clearActivateForm() {
   if (safeCodeInput) safeCodeInput.value = "";
 }
 
-function openActivateRegisterSheet() {
+function getActivateRegisterMethod() {
+  const raw = String(state.activate?.method || "").toLowerCase();
+  if (raw === "public" || raw === "points" || raw === "credit") return raw;
+  return "credit";
+}
+
+function getActivateRegisterMethodLabel(method = getActivateRegisterMethod()) {
+  if (method === "public") return "公开注册";
+  if (method === "points") return "积分兑换";
+  return "注册码资格";
+}
+
+function openActivateRegisterSheet(method = getActivateRegisterMethod()) {
+  state.activate.method = String(method || "credit").toLowerCase();
   const sheet = document.getElementById("activate-register-sheet");
   const panel = document.querySelector("#activate-register-sheet .redeem-sheet-panel");
   if (!sheet) return;
@@ -2813,7 +2891,20 @@ function closeActivateRegisterSheet() {
 function updateRegisterSheet(profile = state.profile) {
   const hasAccount = Boolean(profile?.has_account);
   const registerCredits = Number(profile?.register_credits ?? 0);
+  const moneyLabel = getMoneyLabel(profile);
+  const points = Number(profile?.points ?? 0);
+  const userLevel = String(profile?.lv || "d");
+  const method = getActivateRegisterMethod();
+  const methodLabel = getActivateRegisterMethodLabel(method);
+  const publicEnabled = Boolean(profile?.public_open_enabled ?? state.publicOpen.enabled);
+  const publicLeft = Number(profile?.public_open_left ?? state.publicOpen.left ?? 0);
+  const publicDays = Number(profile?.public_open_days ?? state.publicOpen.days ?? 30);
+  const inviteEnabled = Boolean(profile?.invite_enabled ?? state.invite.enabled);
+  const inviteLevel = String(profile?.invite_level ?? state.invite.level ?? "b");
+  const inviteCost = Number(profile?.invite_cost ?? state.invite.cost ?? 1000);
+  const levelAllowed = userLevel <= inviteLevel;
   const metaEl = document.getElementById("activate-register-meta");
+  const titleEl = document.getElementById("activate-register-title");
   const submitBtn = document.getElementById("activate-register-submit");
   const nameInput = document.getElementById("activate-register-name");
   const safeCodeInput = document.getElementById("activate-register-safe-code");
@@ -2824,19 +2915,47 @@ function updateRegisterSheet(profile = state.profile) {
     nameInput.value = defaultName.replace(/\s+/g, "");
   }
 
-  if (metaEl) {
-    if (hasAccount) {
-      metaEl.textContent = "你已拥有 Emby 账户，无需重复注册。";
-    } else if (registerCredits > 0) {
-      metaEl.textContent = `当前可用注册资格：${registerCredits} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+  let canSubmit = false;
+  let metaText = "请先获取注册资格。";
+  if (hasAccount) {
+    metaText = "你已拥有 Emby 账户，无需重复注册。";
+  } else if (method === "public") {
+    if (!publicEnabled) {
+      metaText = "管理员未开启公开注册。";
+    } else if (publicLeft <= 0) {
+      metaText = "公开注册名额已用完。";
     } else {
-      metaEl.textContent = "请先获取注册资格。";
+      metaText = `将按公开注册规则直接开通 ${publicDays} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+      canSubmit = true;
     }
+  } else if (method === "points") {
+    if (!inviteEnabled) {
+      metaText = "管理员未开启积分兑换。";
+    } else if (!levelAllowed) {
+      metaText = "当前账号等级不足，无法积分兑换。";
+    } else if (points < inviteCost) {
+      metaText = `积分不足，需要 ${inviteCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
+    } else {
+      metaText = `将消耗 ${inviteCost}${moneyLabel} 直接开通 ${publicDays} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+      canSubmit = true;
+    }
+  } else if (registerCredits > 0) {
+    metaText = `当前可用注册码资格：${registerCredits} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+    canSubmit = true;
+  } else {
+    metaText = "请先使用注册码获取注册资格。";
   }
 
-  if (nameInput) nameInput.disabled = hasAccount || registerCredits <= 0;
-  if (safeCodeInput) safeCodeInput.disabled = hasAccount || registerCredits <= 0;
-  if (submitBtn) submitBtn.disabled = hasAccount || registerCredits <= 0;
+  if (titleEl) {
+    titleEl.textContent = `注册 Emby（${methodLabel}）`;
+  }
+  if (metaEl) {
+    metaEl.textContent = metaText;
+  }
+
+  if (nameInput) nameInput.disabled = !canSubmit;
+  if (safeCodeInput) safeCodeInput.disabled = !canSubmit;
+  if (submitBtn) submitBtn.disabled = !canSubmit;
 }
 
 function updateActivateSheet(profile = state.profile) {
@@ -2864,7 +2983,7 @@ function updateActivateSheet(profile = state.profile) {
 
   if (publicMeta) {
     if (hasAccount) {
-      publicMeta.textContent = "你已拥有账户，无需重复获取资格";
+      publicMeta.textContent = "你已拥有账户，无需重复注册";
     } else if (hasCredit) {
       publicMeta.textContent = "你已拥有注册资格，请直接填写注册信息";
     } else if (!publicEnabled) {
@@ -2872,7 +2991,7 @@ function updateActivateSheet(profile = state.profile) {
     } else if (publicLeft <= 0) {
       publicMeta.textContent = "公开注册名额已用完";
     } else {
-      publicMeta.textContent = `领取 ${publicDays} 天注册资格，剩余名额 ${publicLeft}`;
+      publicMeta.textContent = `填写用户名和安全码后可直接注册 ${publicDays} 天，剩余名额 ${publicLeft}`;
     }
   }
   if (publicBtn) {
@@ -2897,7 +3016,7 @@ function updateActivateSheet(profile = state.profile) {
 
   if (pointsMeta) {
     if (hasAccount) {
-      pointsMeta.textContent = "你已拥有账户，无需积分兑换资格";
+      pointsMeta.textContent = "你已拥有账户，无需积分兑换注册";
     } else if (hasCredit) {
       pointsMeta.textContent = "你已拥有注册资格，请直接填写注册信息";
     } else if (!inviteEnabled) {
@@ -2907,7 +3026,7 @@ function updateActivateSheet(profile = state.profile) {
     } else if (!pointsEnough) {
       pointsMeta.textContent = `需要 ${inviteCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}`;
     } else {
-      pointsMeta.textContent = `消耗 ${inviteCost}${moneyLabel} 领取 ${publicDays} 天注册资格`;
+      pointsMeta.textContent = `填写用户名和安全码后，消耗 ${inviteCost}${moneyLabel} 直接注册 ${publicDays} 天`;
     }
   }
   if (pointsBtn) {
@@ -2951,42 +3070,15 @@ function bindActivateRegisterSheetUi() {
 }
 
 function patchActivateFlowBindings() {
-  const submitQualification = async (method, methodLabel) => {
-    const publicBtn = document.getElementById("activate-public-btn");
-    const codeBtn = document.getElementById("activate-code-btn");
-    const pointsBtn = document.getElementById("activate-points-btn");
-    if (publicBtn) publicBtn.disabled = true;
-    if (codeBtn) codeBtn.disabled = true;
-    if (pointsBtn) pointsBtn.disabled = true;
-
-    try {
-      const result = await api("/webapp/user/activate", {
-        method: "POST",
-        body: JSON.stringify({ method }),
-      });
-
-      if (result.message === "register_credit_added") {
-        const successText = `${methodLabel}资格已到账，请继续填写用户名和安全码完成注册。`;
-        renderResult("activate-sheet-result", {
-          获取方式: methodLabel,
-          本次资格: `${result.data?.days || "-"} 天`,
-          当前资格: `${result.data?.register_credits_left || result.data?.credit || "-"} 天`,
-        }, "等待操作", "success");
-        showResultModal(successText, "success", "资格获取成功");
-        await loadUserStatus();
-        closeActivateSheet();
-        openActivateRegisterSheet();
-        return;
-      }
-    } catch (err) {
-      const reason = mapActivateError(err.message);
-      renderResult("activate-sheet-result", `资格获取失败：${reason}`, "等待操作", "error");
-      showResultModal(`资格获取失败\n原因：${reason}`, "error", "资格获取失败");
-      updateActivateSheet();
-    }
+  const openRegisterByMethod = (method) => {
+    state.activate.method = method;
+    closeActivateSheet();
+    openActivateRegisterSheet(method);
   };
 
   const submitRegister = async () => {
+    const method = getActivateRegisterMethod();
+    const methodLabel = getActivateRegisterMethodLabel(method);
     const { name, safeCode } = getActivateFormValues();
     if (!name) {
       showResultModal("请先输入 Emby 用户名。", "info", "资料未填写");
@@ -3007,9 +3099,20 @@ function patchActivateFlowBindings() {
     try {
       const result = await api("/webapp/user/activate", {
         method: "POST",
-        body: JSON.stringify({ method: "credit", name, safe_code: safeCode }),
+        body: JSON.stringify({ method, name, safe_code: safeCode }),
       });
-      const lines = formatActivateSuccess(result, "注册");
+
+      if (result.message === "register_credit_added") {
+        const successText = `${methodLabel}资格已到账，请继续填写用户名和安全码完成注册。`;
+        renderResult("activate-register-result", successText, "等待提交", "success");
+        showResultModal(successText, "success", "资格获取成功");
+        await loadUserStatus();
+        state.activate.method = "credit";
+        updateRegisterSheet();
+        return;
+      }
+
+      const lines = formatActivateSuccess(result, methodLabel);
       renderResult("activate-register-result", lines, "等待提交", "success");
       showResultModal(lines.join("\n"), "success", "注册成功");
       clearActivateForm();
@@ -3027,25 +3130,24 @@ function patchActivateFlowBindings() {
 
   const activatePublicBtn = rebindNode("#activate-public-btn");
   if (activatePublicBtn) {
-    activatePublicBtn.addEventListener("click", async () => {
-      await submitQualification("public", "公开注册");
+    activatePublicBtn.addEventListener("click", () => {
+      openRegisterByMethod("public");
     });
   }
 
   const activatePointsBtn = rebindNode("#activate-points-btn");
   if (activatePointsBtn) {
-    activatePointsBtn.addEventListener("click", async () => {
-      await submitQualification("points", "积分兑换");
+    activatePointsBtn.addEventListener("click", () => {
+      openRegisterByMethod("points");
     });
   }
 
   const activateCodeBtn = rebindNode("#activate-code-btn");
   if (activateCodeBtn) {
-    activateCodeBtn.addEventListener("click", async () => {
+    activateCodeBtn.addEventListener("click", () => {
       const registerCredits = Number(state.profile?.register_credits ?? 0);
       if (registerCredits > 0) {
-        closeActivateSheet();
-        openActivateRegisterSheet();
+        openRegisterByMethod("credit");
         return;
       }
       closeActivateSheet();
@@ -3057,14 +3159,14 @@ function patchActivateFlowBindings() {
   if (redeemForm) {
     redeemForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-    try {
-      const verified = await executeRedeemTurnstileVerify("兑换");
-      if (!verified) return;
-      const code = document.getElementById("redeem-sheet-code").value.trim();
-      const result = await api("/webapp/user/redeem", {
-        method: "POST",
-        body: JSON.stringify({ code, turnstile_token: state.turnstile.redeemToken }),
-      });
+      try {
+        const verified = await executeRedeemTurnstileVerify("兑换");
+        if (!verified) return;
+        const code = document.getElementById("redeem-sheet-code").value.trim();
+        const result = await api("/webapp/user/redeem", {
+          method: "POST",
+          body: JSON.stringify({ code, turnstile_token: state.turnstile.redeemToken }),
+        });
 
         if (result.message === "register_credit_added" && !state.profile?.has_account) {
           const successText = "注册码使用成功，请继续填写用户名和安全码完成注册。";
@@ -3073,7 +3175,7 @@ function patchActivateFlowBindings() {
           document.getElementById("redeem-sheet-code").value = "";
           closeRedeemSheet();
           await loadUserStatus();
-          openActivateRegisterSheet();
+          openActivateRegisterSheet("credit");
           return;
         }
 
@@ -3088,15 +3190,15 @@ function patchActivateFlowBindings() {
         document.getElementById("redeem-sheet-code").value = "";
         closeRedeemSheet();
         await loadUserStatus();
-    } catch (err) {
-      const reason = mapRedeemError(err.message);
-      setNotice(reason, true);
-      renderResult("redeem-sheet-result", `兑换失败：${reason}`, "等待兑换", "error");
-      showResultModal(`兑换失败\n原因：${reason}`, "error", "兑换失败");
-    } finally {
-      if (state.turnstile.enabled) resetRedeemTurnstileWidget();
-    }
-  });
+      } catch (err) {
+        const reason = mapRedeemError(err.message);
+        setNotice(reason, true);
+        renderResult("redeem-sheet-result", `兑换失败：${reason}`, "等待兑换", "error");
+        showResultModal(`兑换失败\n原因：${reason}`, "error", "兑换失败");
+      } finally {
+        if (state.turnstile.enabled) resetRedeemTurnstileWidget();
+      }
+    });
   }
 
   const registerForm = rebindNode("#activate-register-form");
@@ -3117,7 +3219,7 @@ function patchActivateFlowBindings() {
 const patchedOriginalOpenActivateSheet = openActivateSheet;
 openActivateSheet = function (...args) {
   if (!state.profile?.has_account && Number(state.profile?.register_credits ?? 0) > 0) {
-    openActivateRegisterSheet();
+    openActivateRegisterSheet("credit");
     return;
   }
   return patchedOriginalOpenActivateSheet.apply(this, args);
@@ -3127,6 +3229,40 @@ const patchedLoadUserStatusBase = loadUserStatus;
 loadUserStatus = async function (...args) {
   const result = await patchedLoadUserStatusBase.apply(this, args);
   document.querySelector("#user-status-data .home-alert")?.remove();
+  const profile = state.profile || {};
+  const hasAccount = Boolean(profile.has_account);
+  const accountList = document.querySelector("#user-status-data .home-service-line:last-of-type .home-service-list");
+  if (hasAccount && accountList) {
+    const hasSafeCodeRow = Array.from(accountList.querySelectorAll(".home-service-row-title"))
+      .some((el) => String(el.textContent || "").trim() === "安全码");
+    if (!hasSafeCodeRow) {
+      const safeCode = resolveSafeCode(profile);
+      const hasSafeCode = Boolean(safeCode);
+      const safeCodeDisplay = hasSafeCode ? maskSafeCode(safeCode) : "未设置";
+      const fallbackId = "account-safe-code-value-fallback";
+      const safeCodeRowHtml = `
+        <div class="home-service-row">
+          <div class="home-service-row-main">
+            <div class="home-service-row-title">安全码</div>
+            <div
+              id="${fallbackId}"
+              class="home-service-row-link"
+              data-safe-code="${escapeHtml(safeCode)}"
+              data-visible="false"
+            >${escapeHtml(safeCodeDisplay)}</div>
+          </div>
+          <button
+            type="button"
+            class="home-service-copy"
+            data-action="toggle-safe-code"
+            data-target="${fallbackId}"
+            ${hasSafeCode ? "" : "disabled"}
+          >${hasSafeCode ? "显示" : "未设置"}</button>
+        </div>
+      `;
+      accountList.insertAdjacentHTML("beforeend", safeCodeRowHtml);
+    }
+  }
   const accountTitles = document.querySelectorAll("#user-status-data .home-service-line:last-of-type .home-service-row-title");
   if (accountTitles[1]) {
     accountTitles[1].textContent = "Emby 密码";

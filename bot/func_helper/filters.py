@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+import re
+import unicodedata
+
 from pyrogram.errors import BadRequest
 from pyrogram.filters import create
 from bot import admins, owner, group, LOGGER
@@ -38,6 +41,45 @@ async def admins_filter(update):
     return bool(uid == owner or uid in admins)
 
 
+def _normalize_group_chat_id(raw):
+    """
+    将配置里的群标识规范化为 pyrogram 可识别的 chat_id:
+    - 数字群ID（含 -100...）
+    - @username
+    - t.me/xxx 链接
+    """
+    if isinstance(raw, int):
+        return raw
+
+    text = unicodedata.normalize("NFKC", str(raw or "")).strip()
+    if not text:
+        raise ValueError("empty group identifier")
+
+    # 兼容各种减号字符
+    text = (
+        text.replace("−", "-")
+        .replace("—", "-")
+        .replace("–", "-")
+        .replace("－", "-")
+    )
+
+    # 兼容 t.me 链接写法
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip().strip("/")
+
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if text.startswith("@"):
+        return text
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,}", text):
+        return f"@{text}"
+
+    raise ValueError(f"invalid group identifier: {raw!r}")
+
+
 async def user_in_group_filter(client, update):
     """
     过滤在授权组中的人员
@@ -49,14 +91,15 @@ async def user_in_group_filter(client, update):
     uid = uid.id
     for i in group:
         try:
-            u = await client.get_chat_member(chat_id=int(i), user_id=uid)
+            chat_id = _normalize_group_chat_id(i)
+            u = await client.get_chat_member(chat_id=chat_id, user_id=uid)
             if u.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER, ChatMemberStatus.OWNER]:
                 return True
         except ValueError:
-            LOGGER.error(f"group 配置无效，无法识别该群标识: {i}")
+            LOGGER.error(f"group 配置无效，无法识别该群标识: {i!r}")
             continue
         except BadRequest as e:
-            if e.ID == 'CHAT_ADMIN_REQUIRED':
+            if getattr(e, "ID", None) == 'CHAT_ADMIN_REQUIRED':
                 LOGGER.error(f"bot不能在 {i} 中工作，请检查bot是否在群组及其权限设置")
             continue
         else:
@@ -77,15 +120,16 @@ async def user_in_group_on_filter(filt, client, update):
         return True
     for i in group:
         try:
-            u = await client.get_chat_member(chat_id=int(i), user_id=uid)
+            chat_id = _normalize_group_chat_id(i)
+            u = await client.get_chat_member(chat_id=chat_id, user_id=uid)
             if u.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.MEMBER,
                             ChatMemberStatus.OWNER]:  # 移除了 'ChatMemberStatus.RESTRICTED' 防止有人进群直接注册不验证
                 return True  # 因为被限制用户无法使用bot，所以需要检查权限。
         except ValueError:
-            LOGGER.error(f"group 配置无效，无法识别该群标识: {i}")
+            LOGGER.error(f"group 配置无效，无法识别该群标识: {i!r}")
             continue
         except BadRequest as e:
-            if e.ID == 'CHAT_ADMIN_REQUIRED':
+            if getattr(e, "ID", None) == 'CHAT_ADMIN_REQUIRED':
                 LOGGER.error(f"bot不能在 {i} 中工作，请检查bot是否在群组及其权限设置")
             continue
     return False

@@ -85,7 +85,6 @@ def judge_start_ikb(is_admin: bool, account: bool) -> InlineKeyboardMarkup:
 
     # 仅有账号时显示“使用续期码”按钮，无账号不再额外加“使用注册码”按钮
     show_redeem_button = account and schedall.check_ex
-    show_redeem_button = account and schedall.check_ex
     if web_panel_ok and show_redeem_button:
         redeem_text = '🎟️ 使用续期码' if account else '🎟️ 使用注册码'
         keyword.inline_keyboard.append([

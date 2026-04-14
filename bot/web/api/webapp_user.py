@@ -8,11 +8,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiohttp
+from pyrogram import enums
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config, schedall
+from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config, schedall, bot, group
 from bot.func_helper.emby import emby, Embyservice
 from bot.func_helper.utils import pwd_create
 from bot.sql_helper import Session
@@ -55,6 +56,160 @@ class ChangePasswordRequest(BaseModel):
 
 def _is_renew_code(input_string: str) -> bool:
     return "Renew" in input_string
+
+
+def _normalize_group_chat_id(raw):
+    if isinstance(raw, int):
+        return raw
+
+    text = str(raw or "").strip()
+    if not text:
+        return None
+
+    text = (
+        text.replace("－", "-")
+        .replace("–", "-")
+        .replace("—", "-")
+        .replace("﹣", "-")
+    )
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip().strip("/")
+
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if text.startswith("@"):
+        return text
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,}", text):
+        return f"@{text}"
+    return None
+
+
+"""
+def _mask_code(code: str) -> str:
+    text = str(code or "").strip()
+    if not text:
+        return ""
+    hidden_len = 7 if len(text) >= 7 else len(text)
+    return text[:-hidden_len] + ("░" * hidden_len)
+
+
+"""
+
+
+def _mask_code(code: str) -> str:
+    text = str(code or "").strip()
+    if not text:
+        return ""
+    hidden_len = 7 if len(text) >= 7 else len(text)
+    return text[:-hidden_len] + ("\u2591" * hidden_len)
+
+
+def _normalize_group_chat_id_v2(raw):
+    if isinstance(raw, int):
+        return raw
+
+    text = str(raw or "").strip()
+    if not text:
+        return None
+
+    text = (
+        text.replace("\uFF0D", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\uFE63", "-")
+    )
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip().strip("/")
+
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if text.startswith("@"):
+        return text
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,}", text):
+        return f"@{text}"
+    return None
+
+
+async def _notify_group_message(text: str) -> None:
+    if not text:
+        return
+    if not group:
+        LOGGER.warning("WebApp notify skipped: group list is empty")
+        return
+    chat_id = _normalize_group_chat_id_v2(group[0])
+    if chat_id is None:
+        LOGGER.warning(f"WebApp notify skipped: invalid group identifier: {group[0]!r}")
+        return
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode=enums.ParseMode.MARKDOWN)
+    except Exception as exc:
+        LOGGER.warning(f"WebApp notify failed: {exc}")
+
+
+def _build_register_code_notify_text(tg_id: int, code: str) -> str:
+    return f"· 🎟️ 注册码使用 - [用户](tg://user?id={tg_id}) [{tg_id}] 使用了 {_mask_code(code)}"
+
+
+def _build_renew_notify_text(tg_id: int, ex_text: str) -> str:
+    return (
+        f"\u00b7 \U0001f39f\ufe0f \u7eed\u8d39\u6210\u529f - [\u7528\u6237](tg://user?id={tg_id}) [{tg_id}]\n"
+        f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
+    )
+
+
+def _build_register_code_notify_text_v2(tg_id: int, code: str) -> str:
+    return (
+        f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - [\u7528\u6237](tg://user?id={tg_id}) [{tg_id}] "
+        f"\u4f7f\u7528\u4e86 {_mask_code(code)}"
+    )
+
+
+async def _resolve_user_display_name(tg_id: int) -> str:
+    try:
+        chat = await bot.get_chat(tg_id)
+        name = (getattr(chat, "first_name", None) or getattr(chat, "title", None) or "").strip()
+        return name or str(tg_id)
+    except Exception as exc:
+        LOGGER.warning(f"WebApp resolve user display name failed: tg={tg_id} err={exc}")
+        return str(tg_id)
+
+
+def _format_user_mention(display_name: str, tg_id: int) -> str:
+    safe_name = str(display_name or tg_id).strip()
+    safe_name = (
+        safe_name.replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+    )
+    if not safe_name:
+        safe_name = str(tg_id)
+    return f"[{safe_name}](tg://user?id={tg_id})"
+
+
+def _build_register_code_notify_text_v3(display_name: str, tg_id: int, code: str) -> str:
+    return (
+        f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
+        f"[{tg_id}] \u4f7f\u7528\u4e86 {_mask_code(code)}"
+    )
+
+
+def _build_renew_code_notify_text_v3(display_name: str, tg_id: int, code: str, ex_text: str) -> str:
+    return (
+        f"\u00b7 \U0001f39f\ufe0f \u7eed\u671f\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
+        f"[{tg_id}] \u4f7f\u7528\u4e86 {_mask_code(code)}\n"
+        f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
+    )
 
 
 def _normalize_emby_name(raw: str, tg_id: int) -> str:
@@ -162,6 +317,7 @@ async def user_status(user=Depends(get_current_webapp_user)):
             "name": record.name,
             "embyid": record.embyid,
             "password": record.pwd,
+            "safe_code": record.pwd2,
             "lv": record.lv,
             "created_at": record.cr,
             "expires_at": record.ex,
@@ -322,6 +478,10 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
     if method not in {"public", "credit", "points"}:
         raise HTTPException(status_code=400, detail="invalid_activate_method")
 
+    requested_name_raw = (body.name or "").strip()
+    safe_code_raw = (body.safe_code or "").strip()
+    want_create_now = bool(requested_name_raw or safe_code_raw)
+
     async with _activate_lock:
         with Session() as session:
             record = session.query(Emby).filter(Emby.tg == user["tg_id"]).with_for_update().first()
@@ -335,25 +495,41 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
             iv_current = int(record.iv or 0)
             lv_current = str(record.lv or "d")
             us_current = int(record.us or 0)
+            final_name = ""
+            embyid = ""
+            pwd = ""
+            ex = None
+            pwd2 = ""
+            create_now = False
 
             if method == "public":
-                if us_current > 0:
-                    raise HTTPException(status_code=400, detail="already_has_register_credit")
                 if not _open.stat:
                     raise HTTPException(status_code=400, detail="public_register_closed")
                 if int(_open.tem or 0) >= int(_open.all_user or 0):
                     raise HTTPException(status_code=400, detail="public_register_quota_reached")
                 days = int(_open.open_us or 30)
-                record.us = us_current + days
+                if want_create_now:
+                    if us_current > 0:
+                        raise HTTPException(status_code=400, detail="already_has_register_credit")
+                    requested_name = _normalize_requested_emby_name(body.name)
+                    safe_code = _normalize_safe_code(body.safe_code)
+                    final_name = requested_name
+                    pwd2 = safe_code
+                    create_now = True
+                else:
+                    if us_current > 0:
+                        raise HTTPException(status_code=400, detail="already_has_register_credit")
+                    record.us = us_current + days
             elif method == "credit":
                 if us_current <= 0:
                     raise HTTPException(status_code=400, detail="no_register_credit")
                 requested_name = _normalize_requested_emby_name(body.name)
                 safe_code = _normalize_safe_code(body.safe_code)
                 days = us_current
+                final_name = requested_name
+                pwd2 = safe_code
+                create_now = True
             elif method == "points":
-                if us_current > 0:
-                    raise HTTPException(status_code=400, detail="already_has_register_credit")
                 if not _open.invite:
                     raise HTTPException(status_code=400, detail="points_exchange_disabled")
                 if (_open.invite_lv or "b") < lv_current:
@@ -362,29 +538,37 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
                 if iv_current < cost:
                     raise HTTPException(status_code=400, detail="insufficient_points")
                 days = int(_open.open_us or 30)
-                record.iv = iv_current - cost
-                record.us = us_current + days
+                if want_create_now:
+                    if us_current > 0:
+                        raise HTTPException(status_code=400, detail="already_has_register_credit")
+                    requested_name = _normalize_requested_emby_name(body.name)
+                    safe_code = _normalize_safe_code(body.safe_code)
+                    final_name = requested_name
+                    pwd2 = safe_code
+                    create_now = True
+                    record.iv = iv_current - cost
+                else:
+                    if us_current > 0:
+                        raise HTTPException(status_code=400, detail="already_has_register_credit")
+                    record.iv = iv_current - cost
+                    record.us = us_current + days
 
-            if method == "credit":
-                final_name = requested_name
+            if create_now:
                 created = await emby.emby_create(name=final_name, days=days)
                 if not created:
                     raise HTTPException(status_code=500, detail="emby_create_failed")
 
                 embyid, pwd, ex = created
-                pwd2 = safe_code
-
-                update_data = {
-                    Emby.name: final_name,
-                    Emby.embyid: embyid,
-                    Emby.pwd: pwd,
-                    Emby.pwd2: pwd2,
-                    Emby.lv: "b",
-                    Emby.cr: datetime.now(),
-                    Emby.ex: ex,
-                    Emby.us: 0,
-                }
-                session.query(Emby).filter(Emby.tg == user["tg_id"]).update(update_data)
+                # 直接写回锁定中的 record，避免批量 update 映射在特殊环境下丢字段
+                record.name = final_name
+                record.embyid = embyid
+                record.pwd = pwd
+                record.pwd2 = pwd2
+                record.lv = "b"
+                record.cr = datetime.now()
+                record.ex = ex
+                if method == "credit":
+                    record.us = 0
             session.commit()
 
     if method == "public":
@@ -395,7 +579,7 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
 
     latest = sql_get_emby(user["tg_id"])
     LOGGER.info(f"WebApp activate account: tg={user['tg_id']} method={method} days={days}")
-    if method in {"public", "points"}:
+    if method in {"public", "points"} and not create_now:
         return {
             "code": 200,
             "message": "register_credit_added",
@@ -515,6 +699,8 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
         points_left = int(record.iv or 0)
 
     LOGGER.info(f"WebApp points renew: tg={user['tg_id']} days={days} cost={cost}")
+    ex_text = ex_new.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex_new, datetime) else str(ex_new)
+    await _notify_group_message(_build_renew_notify_text(user["tg_id"], ex_text))
     return {
         "code": 200,
         "message": "renewed",
@@ -578,11 +764,23 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
             else:
                 session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.ex: ex_new})
             session.commit()
+            ex_text = str(ex_new) if isinstance(ex_new, datetime) else str(ex_new)
+            legacy_renew_notify = """
+                f"· 🎟️ 续期码使用 - [用户](tg://user?id={user['tg_id']}) [{user['tg_id']}] 使用了 {masked_code}\n"
+                f"· 📅 实时到期 - {ex_text}"
+            )
+            """
+            display_name = await _resolve_user_display_name(user["tg_id"])
+            await _notify_group_message(
+                _build_renew_code_notify_text_v3(display_name, user["tg_id"], register_code, ex_text)
+            )
             LOGGER.info(f"WebApp renew code used: tg={user['tg_id']} days={gift_days}")
             return {"code": 200, "message": "renewed", "data": {"days": gift_days, "expires_at": ex_new}}
 
         new_credit = record.us + gift_days
         session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.us: new_credit})
         session.commit()
+        display_name = await _resolve_user_display_name(user["tg_id"])
+        await _notify_group_message(_build_register_code_notify_text_v3(display_name, user["tg_id"], register_code))
         LOGGER.info(f"WebApp register code used: tg={user['tg_id']} credit={gift_days}")
         return {"code": 200, "message": "register_credit_added", "data": {"credit": new_credit, "days": gift_days}}
