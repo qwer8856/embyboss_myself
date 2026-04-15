@@ -150,6 +150,10 @@ async def _notify_group_message(text: str) -> None:
         await bot.send_message(chat_id=chat_id, text=text, parse_mode=enums.ParseMode.MARKDOWN)
     except Exception as exc:
         LOGGER.warning(f"WebApp notify failed: {exc}")
+        try:
+            await bot.send_message(chat_id=chat_id, text=text)
+        except Exception as fallback_exc:
+            LOGGER.warning(f"WebApp notify fallback failed: {fallback_exc}")
 
 
 def _build_register_code_notify_text(tg_id: int, code: str) -> str:
@@ -200,6 +204,20 @@ def _format_user_mention(display_name: str, tg_id: int) -> str:
     return f"[{safe_name}](tg://user?id={tg_id})"
 
 
+def _escape_markdown_text(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+    )
+
+
 def _build_register_code_notify_text_v3(display_name: str, tg_id: int, code: str) -> str:
     return (
         f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
@@ -212,6 +230,20 @@ def _build_renew_code_notify_text_v3(display_name: str, tg_id: int, code: str, e
         f"\u00b7 \U0001f39f\ufe0f \u7eed\u671f\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
         f"[{tg_id}] \u4f7f\u7528\u4e86 {_mask_code(code)}\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
+    )
+
+
+def _build_activate_notify_text(display_name: str, tg_id: int, method: str, emby_name: str, days: int, ex_text: str) -> str:
+    method_labels = {
+        "public": "公开注册",
+        "credit": "注册码注册",
+        "points": "积分兑换注册",
+    }
+    method_label = method_labels.get(method, method or "注册")
+    return (
+        f"· \U0001f4dd 账号注册成功 - {_format_user_mention(display_name, tg_id)} [{tg_id}] 通过 {method_label} 完成注册\n"
+        f"· \U0001f464 账号名 - {_escape_markdown_text(emby_name)}\n"
+        f"· \U0001f4c5 有效期 - {days} 天，{ex_text}"
     )
 
 
@@ -587,6 +619,12 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
 
     latest = sql_get_emby(user["tg_id"])
     LOGGER.info(f"WebApp activate account: tg={user['tg_id']} method={method} days={days}")
+    if create_now:
+        display_name = await _resolve_user_display_name(user["tg_id"])
+        ex_text = ex.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex, datetime) else str(ex)
+        await _notify_group_message(
+            _build_activate_notify_text(display_name, user["tg_id"], method, final_name, days, ex_text)
+        )
     if method in {"public", "points"} and not create_now:
         return {
             "code": 200,

@@ -1,13 +1,15 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
+import re
 from typing import Optional
 
+from pyrogram import enums
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
 
-from bot import LOGGER, admins, save_config, user_p, admin_p, owner_p, _open, webapp as webapp_config
+from bot import LOGGER, admins, save_config, user_p, admin_p, owner_p, _open, webapp as webapp_config, bot, group
 from bot.func_helper.emby import emby
 from bot.sql_helper import Session
 from bot.sql_helper.sql_emby import (
@@ -79,6 +81,148 @@ def _command_to_dict(command_obj):
         "description": desc,
         "web_integrated": cmd in WEBAPP_INTEGRATED_COMMANDS,
     }
+
+
+def _normalize_group_chat_id(raw):
+    if isinstance(raw, int):
+        return raw
+
+    text = str(raw or "").strip()
+    if not text:
+        return None
+
+    text = (
+        text.replace("－", "-")
+        .replace("–", "-")
+        .replace("—", "-")
+        .replace("﹣", "-")
+    )
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip().strip("/")
+
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if text.startswith("@"):
+        return text
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,}", text):
+        return f"@{text}"
+    return None
+
+
+def _escape_markdown_text(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+    )
+
+
+def _format_user_mention(display_name: str, tg_id: int) -> str:
+    safe_name = _escape_markdown_text(display_name or tg_id)
+    safe_name = str(safe_name).strip() or str(tg_id)
+    return f"[{safe_name}](tg://user?id={tg_id})"
+
+
+async def _resolve_user_display_name(tg_id: int) -> str:
+    try:
+        chat = await bot.get_chat(tg_id)
+        name = (getattr(chat, "first_name", None) or getattr(chat, "title", None) or "").strip()
+        return name or str(tg_id)
+    except Exception as exc:
+        LOGGER.warning(f"WebApp admin notify resolve display name failed: tg={tg_id} err={exc}")
+        return str(tg_id)
+
+
+async def _notify_group_message(text: str) -> None:
+    if not text:
+        return
+    if not group:
+        LOGGER.warning("WebApp admin notify skipped: group list is empty")
+        return
+    chat_id = _normalize_group_chat_id(group[0])
+    if chat_id is None:
+        LOGGER.warning(f"WebApp admin notify skipped: invalid group identifier: {group[0]!r}")
+        return
+    try:
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode=enums.ParseMode.MARKDOWN)
+    except Exception as exc:
+        LOGGER.warning(f"WebApp admin notify failed: {exc}")
+
+
+def _build_admin_open_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int, days: int, ex_text: str) -> str:
+    return (
+        f"· \U0001f195 管理员开通账号 - {_format_user_mention(operator_name, operator_tg)} 为 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}] 开通 {days} 天\n"
+        f"· \U0001f4c5 实时到期 - {ex_text}"
+    )
+
+
+def _build_admin_renew_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int, days: int, ex_text: str) -> str:
+    return (
+        f"· \U0001f4c6 管理员手动续期 - {_format_user_mention(operator_name, operator_tg)} 为 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}] 续期 {days} 天\n"
+        f"· \U0001f4c5 实时到期 - {ex_text}"
+    )
+
+
+def _build_admin_ban_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int, disabled: bool) -> str:
+    action = "封禁" if disabled else "解封"
+    return (
+        f"· \U0001f6ab 管理员{action}账号 - {_format_user_mention(operator_name, operator_tg)} 将 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}] 设为{action}"
+    )
+
+
+def _build_admin_delete_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int) -> str:
+    return (
+        f"· \U0001f5d1\ufe0f 管理员删除账号 - {_format_user_mention(operator_name, operator_tg)} 删除了 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}]"
+    )
+
+
+def _build_admin_whitelist_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int, enabled: bool) -> str:
+    status = "白名单" if enabled else "普通线路"
+    return (
+        f"· \u2b50 白名单状态变更 - {_format_user_mention(operator_name, operator_tg)} 将 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}] 调整为{status}"
+    )
+
+
+def _build_admin_toggle_text(operator_name: str, operator_tg: int, target_name: str, target_tg: int, enabled: bool) -> str:
+    action = "添加管理员" if enabled else "取消管理员"
+    return (
+        f"· \U0001f477 管理员权限变更 - {_format_user_mention(operator_name, operator_tg)} 对 "
+        f"{_format_user_mention(target_name, target_tg)} [{target_tg}] 执行{action}"
+    )
+
+
+def _build_checkin_settings_text(operator_name: str, operator_tg: int, enabled: bool, level: str) -> str:
+    status = "开启" if enabled else "关闭"
+    return (
+        f"· \u2699\ufe0f 签到配置变更 - {_format_user_mention(operator_name, operator_tg)} 将签到功能设为{status}\n"
+        f"· \U0001f3af 允许最低等级 - {level}"
+    )
+
+
+def _build_banner_settings_text(operator_name: str, operator_tg: int, enabled: bool, title: str, subtitle: str) -> str:
+    status = "开启" if enabled else "关闭"
+    title_text = _escape_markdown_text(title or "未填写")
+    subtitle_text = _escape_markdown_text(subtitle or "未填写")
+    return (
+        f"· \U0001f5e7 主页横幅变更 - {_format_user_mention(operator_name, operator_tg)} 更新了首页横幅\n"
+        f"· \U0001f6a7 状态 - {status}\n"
+        f"· \U0001f4dd 标题 - {title_text}\n"
+        f"· \U0001f4dd 副标题 - {subtitle_text}"
+    )
 
 
 @router.get("/overview")
@@ -171,6 +315,10 @@ async def open_user_account(body: OpenUserRequest, user=Depends(require_admin)):
     if not ok:
         raise HTTPException(status_code=500, detail="db_update_failed")
     LOGGER.info(f"WebApp admin {user['tg_id']} opened account for tg={body.tg}, name={body.name}")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    await _notify_group_message(
+        _build_admin_open_text(operator_name, user["tg_id"], body.name, body.tg, body.days, ex.strftime("%Y-%m-%d %H:%M:%S"))
+    )
     return {"code": 200, "data": {"tg": body.tg, "name": body.name, "embyid": embyid, "expires_at": ex}}
 
 
@@ -200,6 +348,18 @@ async def renew_user_account(body: QueryDaysRequest, user=Depends(require_admin)
     if not ok:
         raise HTTPException(status_code=500, detail="db_update_failed")
     LOGGER.info(f"WebApp admin {user['tg_id']} renewed {record.tg} by {body.days} days")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    target_name = record.name or record.embyid or str(record.tg)
+    await _notify_group_message(
+        _build_admin_renew_text(
+            operator_name,
+            user["tg_id"],
+            target_name,
+            record.tg,
+            int(body.days),
+            ex_new.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+    )
     return {
         "code": 200,
         "data": {
@@ -226,6 +386,11 @@ async def ban_or_unban_user(body: QueryBoolRequest, user=Depends(require_admin))
     new_lv = "c" if disable else ("a" if record.lv == "a" else "b")
     sql_update_emby(Emby.tg == record.tg, lv=new_lv)
     LOGGER.info(f"WebApp admin {user['tg_id']} set ban={disable} for tg={record.tg}")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    target_name = record.name or record.embyid or str(record.tg)
+    await _notify_group_message(
+        _build_admin_ban_text(operator_name, user["tg_id"], target_name, record.tg, disable)
+    )
     return {"code": 200, "data": {"tg": record.tg, "lv": new_lv, "disabled": disable}}
 
 
@@ -240,6 +405,11 @@ async def delete_user_account(query: str, user=Depends(require_admin)):
         raise HTTPException(status_code=500, detail="emby_delete_failed")
     sql_update_emby(Emby.tg == record.tg, lv="d", name=None, embyid=None, cr=None, ex=None)
     LOGGER.info(f"WebApp admin {user['tg_id']} deleted emby for tg={record.tg}")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    target_name = record.name or record.embyid or str(record.tg)
+    await _notify_group_message(
+        _build_admin_delete_text(operator_name, user["tg_id"], target_name, record.tg)
+    )
     return {"code": 200, "data": {"tg": record.tg, "deleted": True}}
 
 
@@ -253,6 +423,11 @@ async def whitelist_user(body: QueryBoolRequest, user=Depends(require_admin)):
     if not ok:
         raise HTTPException(status_code=500, detail="db_update_failed")
     LOGGER.info(f"WebApp admin {user['tg_id']} set whitelist={body.enable} for tg={record.tg}")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    target_name = record.name or record.embyid or str(record.tg)
+    await _notify_group_message(
+        _build_admin_whitelist_text(operator_name, user["tg_id"], target_name, record.tg, body.enable)
+    )
     return {"code": 200, "data": {"tg": record.tg, "lv": new_lv}}
 
 
@@ -268,6 +443,11 @@ async def toggle_admin(body: ToggleAdminRequest, user=Depends(require_owner)):
     if changed:
         save_config()
         LOGGER.info(f"WebApp owner {user['tg_id']} changed admin list for {body.tg} -> {body.enable}")
+        operator_name = await _resolve_user_display_name(user["tg_id"])
+        target_name = await _resolve_user_display_name(body.tg)
+        await _notify_group_message(
+            _build_admin_toggle_text(operator_name, user["tg_id"], target_name, body.tg, body.enable)
+        )
     return {"code": 200, "data": {"changed": changed, "admins": admins}}
 
 
@@ -292,6 +472,8 @@ async def update_checkin_settings(body: CheckinSettingsRequest, user=Depends(req
     LOGGER.info(
         f"WebApp owner {user['tg_id']} updated checkin settings: enabled={body.enabled}, level={body.level}"
     )
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    await _notify_group_message(_build_checkin_settings_text(operator_name, user["tg_id"], body.enabled, body.level))
     return {
         "code": 200,
         "data": {
@@ -326,6 +508,10 @@ async def update_banner_settings(body: BannerSettingsRequest, user=Depends(requi
     webapp_config.banner.link_url = body.link_url
     save_config()
     LOGGER.info(f"WebApp owner {user['tg_id']} updated homepage banner settings")
+    operator_name = await _resolve_user_display_name(user["tg_id"])
+    await _notify_group_message(
+        _build_banner_settings_text(operator_name, user["tg_id"], body.enabled, body.title, body.subtitle)
+    )
     return {
         "code": 200,
         "data": {

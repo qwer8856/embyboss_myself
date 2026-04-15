@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from pyrogram import filters
 from pyrogram.errors import BadRequest
 
-from bot import bot, prefixes, LOGGER
+from bot import bot, prefixes, LOGGER, group
 from bot.func_helper.emby import emby
 from bot.func_helper.filters import admins_on_filter
 from bot.func_helper.msg_utils import deleteMessage, sendMessage
@@ -88,6 +88,19 @@ async def renew_user(_, msg):
         await i.forward(e.tg)
     except:
         pass
+
+    if group:
+        try:
+            await bot.send_message(
+                chat_id=group[0],
+                text=(
+                    f"🍒 __ {gm_name} 已调整 emby 用户 {name} 到期时间 {days} 天 (以当前时间计)__\n"
+                    f"📅 实时到期：{ex_new.strftime('%Y-%m-%d %H:%M:%S')}"
+                ),
+                parse_mode="markdown",
+            )
+        except Exception as exc:
+            LOGGER.warning(f"renew group notify failed: {exc}")
 
     LOGGER.info(
         f"【admin】[renew]：{gm_name} 对 emby账户 {name} 调节 {days} 天，"
