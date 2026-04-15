@@ -2097,6 +2097,31 @@ select:focus {
   gap: 16px;
 }
 
+.admin-page .admin-banner-slot {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+  border: 1px solid rgba(126, 144, 255, 0.28);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.12), transparent 26%),
+    radial-gradient(circle at 0% 100%, rgba(14, 165, 233, 0.08), transparent 22%),
+    linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+}
+
+.admin-page .admin-banner-slot::before {
+  background: linear-gradient(90deg, #7c3aed 0%, #2563eb 100%);
+}
+
+.admin-page .admin-banner-slot .tool-head h4 {
+  font-size: 20px;
+  color: #1a2540;
+}
+
+.admin-page .admin-banner-slot p {
+  color: #5f6f8c;
+}
+
 .admin-hero {
   position: relative;
   overflow: hidden;

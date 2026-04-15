@@ -6,7 +6,7 @@
   <title>Sakura Emby Boss WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260415-0140" />
+  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260416-0201" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
@@ -118,6 +118,25 @@
 
       <section id="admin-settings" class="view page-view admin-page">
         <div class="admin-console">
+          <div class="admin-tool-card admin-tool-card-owner admin-banner-slot" data-owner-only="true">
+            <div class="tool-head">
+              <h4>置顶广告位</h4>
+              <span class="chip">Owner</span>
+            </div>
+            <p>首页顶部 Banner，支持图片、文案和跳转链接，点击图片即可跳转。</p>
+            <form id="banner-settings-form" class="admin-form-stack">
+              <select id="banner-enabled">
+                <option value="true">开启广告</option>
+                <option value="false">关闭广告</option>
+              </select>
+              <input id="banner-title" placeholder="广告标题" />
+              <input id="banner-subtitle" placeholder="广告副标题" />
+              <input id="banner-image-url" placeholder="广告图片 URL" />
+              <input id="banner-link-url" placeholder="点击跳转链接 URL" />
+              <button type="submit">保存广告</button>
+            </form>
+            <div id="banner-settings-result" class="result-panel empty">等待读取配置</div>
+          </div>
           <div class="admin-dashboard">
             <div class="admin-column">
               <div class="admin-section-card admin-section-card-primary">
@@ -222,26 +241,6 @@
                     <button type="submit">保存设置</button>
                   </form>
                   <div id="checkin-settings-result" class="result-panel empty">等待读取配置</div>
-                </div>
-
-                <div class="admin-tool-card admin-tool-card-owner" data-owner-only="true">
-                  <div class="tool-head">
-                    <h4>首页广告 Banner</h4>
-                    <span class="chip">Owner</span>
-                  </div>
-                  <p>配置首页广告图、标题、副标题与跳转链接。</p>
-                  <form id="banner-settings-form" class="admin-form-stack">
-                    <select id="banner-enabled">
-                      <option value="true">开启广告</option>
-                      <option value="false">关闭广告</option>
-                    </select>
-                    <input id="banner-title" placeholder="广告标题" />
-                    <input id="banner-subtitle" placeholder="广告副标题" />
-                    <input id="banner-image-url" placeholder="广告图片 URL" />
-                    <input id="banner-link-url" placeholder="点击跳转链接 URL" />
-                    <button type="submit">保存广告</button>
-                  </form>
-                  <div id="banner-settings-result" class="result-panel empty">等待读取配置</div>
                 </div>
               </div>
             </div>
