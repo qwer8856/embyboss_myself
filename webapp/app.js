@@ -2422,154 +2422,175 @@ function bindForms() {
     }
   });
 
-  document.getElementById("search-users-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const q = encodeURIComponent(document.getElementById("search-query").value.trim());
-      const result = await api(`/webapp/admin/users?query=${q}&page=1&page_size=20`);
-      const items = result.data?.items || [];
-      renderResultHtml("search-users-result", renderSearchResultCards(items), "等待查询", items.length ? "success" : "info");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("search-users-result", `查询失败：${err.message}`, "等待查询", "error");
-    }
-  });
+  const searchUsersForm = document.getElementById("search-users-form");
+  if (searchUsersForm) {
+    searchUsersForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const q = encodeURIComponent(document.getElementById("search-query").value.trim());
+        const result = await api(`/webapp/admin/users?query=${q}&page=1&page_size=20`);
+        const items = result.data?.items || [];
+        renderResultHtml("search-users-result", renderSearchResultCards(items), "等待查询", items.length ? "success" : "info");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("search-users-result", `查询失败：${err.message}`, "等待查询", "error");
+      }
+    });
+  }
 
-  document.getElementById("open-user-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        tg: Number(document.getElementById("open-tg").value.trim()),
-        name: document.getElementById("open-name").value.trim(),
-        days: Number(document.getElementById("open-days").value.trim() || 30),
-      };
-      const result = await api("/webapp/admin/users/open", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      renderResultHtml("open-user-result", renderKeyValueResultCard("开通结果", {
-        TG: result.data?.tg,
-        用户名: result.data?.name,
-        EmbyID: result.data?.embyid,
-        到期时间: toDisplayTime(result.data?.expires_at),
-      }), "等待开通", "success");
-      showResultModal("已成功开通账户。", "success", "开通成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("open-user-result", `开通失败：${err.message}`, "等待开通", "error");
-      showResultModal(`开通失败\n原因：${err.message}`, "error", "开通失败");
-    }
-  });
+  const openUserForm = document.getElementById("open-user-form");
+  if (openUserForm) {
+    openUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          tg: Number(document.getElementById("open-tg").value.trim()),
+          name: document.getElementById("open-name").value.trim(),
+          days: Number(document.getElementById("open-days").value.trim() || 30),
+        };
+        const result = await api("/webapp/admin/users/open", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        renderResultHtml("open-user-result", renderKeyValueResultCard("开通结果", {
+          TG: result.data?.tg,
+          用户名: result.data?.name,
+          EmbyID: result.data?.embyid,
+          到期时间: toDisplayTime(result.data?.expires_at),
+        }), "等待开通", "success");
+        showResultModal("已成功开通账户。", "success", "开通成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("open-user-result", `开通失败：${err.message}`, "等待开通", "error");
+        showResultModal(`开通失败\n原因：${err.message}`, "error", "开通失败");
+      }
+    });
+  }
 
-  document.getElementById("renew-user-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        query: document.getElementById("renew-query").value.trim(),
-        days: Number(document.getElementById("renew-days").value.trim()),
-      };
-      const result = await api("/webapp/admin/users/renew", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      const lines = formatBotAdminRenewLines(
-        getTgUserDisplayName(),
-        result.data?.name || payload.query,
-        result.data?.days ?? payload.days,
-        result.data?.expires_at
-      );
-      renderResult("renew-user-result", lines, "等待续期", "success");
-      showResultModal(lines.join("\n"), "success", "续期成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("renew-user-result", `续期失败：${err.message}`, "等待续期", "error");
-      showResultModal(`续期失败\n原因：${err.message}`, "error", "续期失败");
-    }
-  });
+  const renewUserForm = document.getElementById("renew-user-form");
+  if (renewUserForm) {
+    renewUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          query: document.getElementById("renew-query").value.trim(),
+          days: Number(document.getElementById("renew-days").value.trim()),
+        };
+        const result = await api("/webapp/admin/users/renew", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const lines = formatBotAdminRenewLines(
+          getTgUserDisplayName(),
+          result.data?.name || payload.query,
+          result.data?.days ?? payload.days,
+          result.data?.expires_at
+        );
+        renderResult("renew-user-result", lines, "等待续期", "success");
+        showResultModal(lines.join("\n"), "success", "续期成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("renew-user-result", `续期失败：${err.message}`, "等待续期", "error");
+        showResultModal(`续期失败\n原因：${err.message}`, "error", "续期失败");
+      }
+    });
+  }
 
-  document.getElementById("ban-user-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        query: document.getElementById("ban-query").value.trim(),
-        enable: document.getElementById("ban-enable").value === "true",
-      };
-      const result = await api("/webapp/admin/users/ban", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      renderResultHtml("ban-user-result", renderKeyValueResultCard("状态更新", {
-        TG: result.data?.tg,
-        当前等级: result.data?.lv,
-        封禁状态: result.data?.disabled ? "已封禁" : "已解封",
-      }), "等待执行", "success");
-      showResultModal("账户状态更新成功。", "success", "操作成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("ban-user-result", `执行失败：${err.message}`, "等待执行", "error");
-      showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
-    }
-  });
+  const banUserForm = document.getElementById("ban-user-form");
+  if (banUserForm) {
+    banUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          query: document.getElementById("ban-query").value.trim(),
+          enable: document.getElementById("ban-enable").value === "true",
+        };
+        const result = await api("/webapp/admin/users/ban", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        renderResultHtml("ban-user-result", renderKeyValueResultCard("状态更新", {
+          TG: result.data?.tg,
+          当前等级: result.data?.lv,
+          封禁状态: result.data?.disabled ? "已封禁" : "已解封",
+        }), "等待执行", "success");
+        showResultModal("账户状态更新成功。", "success", "操作成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("ban-user-result", `执行失败：${err.message}`, "等待执行", "error");
+        showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
+      }
+    });
+  }
 
-  document.getElementById("whitelist-user-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        query: document.getElementById("whitelist-query").value.trim(),
-        enable: document.getElementById("whitelist-enable").value === "true",
-      };
-      const result = await api("/webapp/admin/users/whitelist", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      renderResultHtml("whitelist-user-result", renderKeyValueResultCard("白名单结果", {
-        TG: result.data?.tg,
-        当前等级: result.data?.lv,
-      }), "等待执行", "success");
-      showResultModal("白名单权限已更新。", "success", "操作成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("whitelist-user-result", `执行失败：${err.message}`, "等待执行", "error");
-      showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
-    }
-  });
+  const whitelistUserForm = document.getElementById("whitelist-user-form");
+  if (whitelistUserForm) {
+    whitelistUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          query: document.getElementById("whitelist-query").value.trim(),
+          enable: document.getElementById("whitelist-enable").value === "true",
+        };
+        const result = await api("/webapp/admin/users/whitelist", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        renderResultHtml("whitelist-user-result", renderKeyValueResultCard("白名单结果", {
+          TG: result.data?.tg,
+          当前等级: result.data?.lv,
+        }), "等待执行", "success");
+        showResultModal("白名单权限已更新。", "success", "操作成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("whitelist-user-result", `执行失败：${err.message}`, "等待执行", "error");
+        showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
+      }
+    });
+  }
 
-  document.getElementById("delete-user-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const query = encodeURIComponent(document.getElementById("delete-query").value.trim());
-      const result = await api(`/webapp/admin/users/${query}`, { method: "DELETE" });
-      renderResultHtml("delete-user-result", renderKeyValueResultCard("删除结果", {
-        TG: result.data?.tg,
-        删除状态: result.data?.deleted ? "已删除" : "失败",
-      }), "等待删除", "success");
-      showResultModal("账户删除成功。", "success", "删除成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("delete-user-result", `删除失败：${err.message}`, "等待删除", "error");
-      showResultModal(`删除失败\n原因：${err.message}`, "error", "删除失败");
-    }
-  });
+  const deleteUserForm = document.getElementById("delete-user-form");
+  if (deleteUserForm) {
+    deleteUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const query = encodeURIComponent(document.getElementById("delete-query").value.trim());
+        const result = await api(`/webapp/admin/users/${query}`, { method: "DELETE" });
+        renderResultHtml("delete-user-result", renderKeyValueResultCard("删除结果", {
+          TG: result.data?.tg,
+          删除状态: result.data?.deleted ? "已删除" : "失败",
+        }), "等待删除", "success");
+        showResultModal("账户删除成功。", "success", "删除成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("delete-user-result", `删除失败：${err.message}`, "等待删除", "error");
+        showResultModal(`删除失败\n原因：${err.message}`, "error", "删除失败");
+      }
+    });
+  }
 
-  document.getElementById("toggle-admin-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        tg: Number(document.getElementById("admin-tg").value.trim()),
-        enable: document.getElementById("admin-enable").value === "true",
-      };
-      const result = await api("/webapp/admin/admins/toggle", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      renderResult("toggle-admin-result", result.data || "操作成功", "等待执行", "success");
-      showResultModal("管理员权限更新成功。", "success", "操作成功");
-    } catch (err) {
-      setNotice(err.message, true);
-      renderResult("toggle-admin-result", `执行失败：${err.message}`, "等待执行", "error");
-      showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
-    }
-  });
+  const toggleAdminForm = document.getElementById("toggle-admin-form");
+  if (toggleAdminForm) {
+    toggleAdminForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          tg: Number(document.getElementById("admin-tg").value.trim()),
+          enable: document.getElementById("admin-enable").value === "true",
+        };
+        const result = await api("/webapp/admin/admins/toggle", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        renderResult("toggle-admin-result", result.data || "操作成功", "等待执行", "success");
+        showResultModal("管理员权限更新成功。", "success", "操作成功");
+      } catch (err) {
+        setNotice(err.message, true);
+        renderResult("toggle-admin-result", `执行失败：${err.message}`, "等待执行", "error");
+        showResultModal(`操作失败\n原因：${err.message}`, "error", "操作失败");
+      }
+    });
+  }
 
   const checkinSettingsForm = document.getElementById("checkin-settings-form");
   if (checkinSettingsForm) {

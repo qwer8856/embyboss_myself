@@ -6,7 +6,7 @@
   <title>Sakura Emby Boss WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260415-0132" />
+  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260415-0133" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
@@ -116,178 +116,133 @@
         </div>
       </section>
 
-      <section id="admin-settings" class="view page-view">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">管理台</span>
-            <h2>管理员后台</h2>
-          </div>
-          <p>在这里统一处理账户、权限和系统开关。</p>
-        </div>
-        <div class="admin-dashboard">
-          <div class="admin-column">
-            <div class="admin-section-card">
-              <div class="admin-section-title">
-                <span class="eyebrow">用户操作</span>
-                <h3>账户管理</h3>
-              </div>
-
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>查找用户</h4>
-                  <span class="chip chip-light">查询</span>
+      <section id="admin-settings" class="view page-view admin-page">
+        <div class="admin-console">
+          <div class="admin-dashboard">
+            <div class="admin-column">
+              <div class="admin-section-card admin-section-card-primary">
+                <div class="admin-section-title">
+                  <span class="eyebrow">用户操作</span>
+                  <h3>账户管理</h3>
+                  <p>按账号信息定位，按需创建、续期或删除。</p>
                 </div>
-                <form id="search-users-form">
-                  <input id="search-query" placeholder="tg/name/embyid" />
-                  <button type="submit">查询</button>
-                </form>
-                <div id="search-users-result" class="result-panel empty">等待查询</div>
-              </div>
 
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>开通账户</h4>
-                  <span class="chip">创建</span>
+                <div class="admin-tool-card admin-tool-card-search">
+                  <div class="tool-head">
+                    <h4>查找用户</h4>
+                    <span class="chip chip-light">查询</span>
+                  </div>
+                  <form id="search-users-form" class="admin-form-stack">
+                    <input id="search-query" placeholder="tg/name/embyid" />
+                    <button type="submit">查询</button>
+                  </form>
+                  <div id="search-users-result" class="result-panel empty">等待查询</div>
                 </div>
-                <form id="open-user-form">
-                  <input id="open-tg" placeholder="TG ID" />
-                  <input id="open-name" placeholder="Emby 用户名" />
-                  <input id="open-days" placeholder="天数(默认30)" />
-                  <button type="submit">开通</button>
-                </form>
-                <div id="open-user-result" class="result-panel empty">等待开通</div>
-              </div>
 
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>续期账户</h4>
-                  <span class="chip chip-light">时效</span>
+                <div class="admin-tool-card danger-tool">
+                  <div class="tool-head">
+                    <h4>删除账户</h4>
+                    <span class="chip chip-danger">危险</span>
+                  </div>
+                  <form id="delete-user-form" class="admin-form-stack">
+                    <input id="delete-query" placeholder="tg/name/embyid" />
+                    <button type="submit">删除</button>
+                  </form>
+                  <div id="delete-user-result" class="result-panel empty">等待删除</div>
                 </div>
-                <form id="renew-user-form">
-                  <input id="renew-query" placeholder="tg/name/embyid" />
-                  <input id="renew-days" placeholder="+30 / -7" />
-                  <button type="submit">续期</button>
-                </form>
-                <div id="renew-user-result" class="result-panel empty">等待续期</div>
-              </div>
-
-              <div class="admin-tool-card danger-tool">
-                <div class="tool-head">
-                  <h4>删除账户</h4>
-                  <span class="chip chip-danger">危险</span>
-                </div>
-                <form id="delete-user-form">
-                  <input id="delete-query" placeholder="tg/name/embyid" />
-                  <button type="submit">删除</button>
-                </form>
-                <div id="delete-user-result" class="result-panel empty">等待删除</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="admin-column">
-            <div class="admin-section-card">
-              <div class="admin-section-title">
-                <span class="eyebrow">权限与风控</span>
-                <h3>权限控制</h3>
-              </div>
-
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>封禁 / 解封</h4>
-                  <span class="chip chip-light">状态</span>
-                </div>
-                <form id="ban-user-form">
-                  <input id="ban-query" placeholder="tg/name/embyid" />
-                  <select id="ban-enable">
-                    <option value="true">封禁</option>
-                    <option value="false">解封</option>
-                  </select>
-                  <button type="submit">执行</button>
-                </form>
-                <div id="ban-user-result" class="result-panel empty">等待执行</div>
-              </div>
-
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>白名单授权</h4>
-                  <span class="chip chip-light">权限</span>
-                </div>
-                <form id="whitelist-user-form">
-                  <input id="whitelist-query" placeholder="tg/name/embyid" />
-                  <select id="whitelist-enable">
-                    <option value="true">设为白名单</option>
-                    <option value="false">取消白名单</option>
-                  </select>
-                  <button type="submit">执行</button>
-                </form>
-                <div id="whitelist-user-result" class="result-panel empty">等待执行</div>
               </div>
             </div>
 
-            <div class="admin-section-card">
-              <div class="admin-section-title">
-                <span class="eyebrow">Owner 专区</span>
-                <h3>系统设置</h3>
+            <div class="admin-column">
+              <div class="admin-section-card admin-section-card-secondary">
+                <div class="admin-section-title">
+                  <span class="eyebrow">权限与风控</span>
+                  <h3>权限控制</h3>
+                  <p>处理封禁、白名单与访问等级。</p>
+                </div>
+
+                <div class="admin-tool-card admin-tool-card-soft">
+                  <div class="tool-head">
+                    <h4>封禁 / 解封</h4>
+                    <span class="chip chip-light">状态</span>
+                  </div>
+                  <form id="ban-user-form" class="admin-form-stack admin-form-inline">
+                    <input id="ban-query" placeholder="tg/name/embyid" />
+                    <select id="ban-enable">
+                      <option value="true">封禁</option>
+                      <option value="false">解封</option>
+                    </select>
+                    <button type="submit">执行</button>
+                  </form>
+                  <div id="ban-user-result" class="result-panel empty">等待执行</div>
+                </div>
               </div>
 
-              <div class="admin-tool-card">
-                <div class="tool-head">
-                  <h4>管理员授权</h4>
-                  <span class="chip">Owner</span>
+              <div class="admin-section-card admin-section-card-system">
+                <div class="admin-section-title">
+                  <span class="eyebrow">Owner 专区</span>
+                  <h3>系统设置</h3>
+                  <p>Owner 专属配置，用于调节全站策略与视觉入口。</p>
                 </div>
-                <p>仅 owner 可执行管理员授权调整。</p>
-                <form id="toggle-admin-form">
-                  <input id="admin-tg" placeholder="TG ID" />
-                  <select id="admin-enable">
-                    <option value="true">添加管理员</option>
-                    <option value="false">删除管理员</option>
-                  </select>
-                  <button type="submit">执行</button>
-                </form>
-                <div id="toggle-admin-result" class="result-panel empty">等待执行</div>
-              </div>
 
-              <div class="admin-tool-card" data-owner-only="true">
-                <div class="tool-head">
-                  <h4>签到设置</h4>
-                  <span class="chip">Owner</span>
+                <div class="admin-tool-card admin-tool-card-owner">
+                  <div class="tool-head">
+                    <h4>管理员授权</h4>
+                    <span class="chip">Owner</span>
+                  </div>
+                  <p>仅 owner 可执行管理员授权调整。</p>
+                  <form id="toggle-admin-form" class="admin-form-stack admin-form-inline">
+                    <input id="admin-tg" placeholder="TG ID" />
+                    <select id="admin-enable">
+                      <option value="true">添加管理员</option>
+                      <option value="false">删除管理员</option>
+                    </select>
+                    <button type="submit">执行</button>
+                  </form>
+                  <div id="toggle-admin-result" class="result-panel empty">等待执行</div>
                 </div>
-                <p>控制签到开关以及允许签到的用户等级。</p>
-                <form id="checkin-settings-form">
-                  <select id="checkin-enabled">
-                    <option value="true">开启签到</option>
-                    <option value="false">关闭签到</option>
-                  </select>
-                  <select id="checkin-level">
-                    <option value="a">仅白名单</option>
-                    <option value="b">白名单 + 普通用户</option>
-                    <option value="c">除已删除外均可</option>
-                    <option value="d">所有用户</option>
-                  </select>
-                  <button type="submit">保存设置</button>
-                </form>
-                <div id="checkin-settings-result" class="result-panel empty">等待读取配置</div>
-              </div>
 
-              <div class="admin-tool-card" data-owner-only="true">
-                <div class="tool-head">
-                  <h4>首页广告 Banner</h4>
-                  <span class="chip">Owner</span>
+                <div class="admin-tool-card admin-tool-card-owner" data-owner-only="true">
+                  <div class="tool-head">
+                    <h4>签到设置</h4>
+                    <span class="chip">Owner</span>
+                  </div>
+                  <p>控制签到开关以及允许签到的用户等级。</p>
+                  <form id="checkin-settings-form" class="admin-form-stack">
+                    <select id="checkin-enabled">
+                      <option value="true">开启签到</option>
+                      <option value="false">关闭签到</option>
+                    </select>
+                    <select id="checkin-level">
+                      <option value="a">仅白名单</option>
+                      <option value="b">白名单 + 普通用户</option>
+                      <option value="c">除已删除外均可</option>
+                      <option value="d">所有用户</option>
+                    </select>
+                    <button type="submit">保存设置</button>
+                  </form>
+                  <div id="checkin-settings-result" class="result-panel empty">等待读取配置</div>
                 </div>
-                <p>配置首页广告图、标题、副标题与跳转链接。</p>
-                <form id="banner-settings-form">
-                  <select id="banner-enabled">
-                    <option value="true">开启广告</option>
-                    <option value="false">关闭广告</option>
-                  </select>
-                  <input id="banner-title" placeholder="广告标题" />
-                  <input id="banner-subtitle" placeholder="广告副标题" />
-                  <input id="banner-image-url" placeholder="广告图片 URL" />
-                  <input id="banner-link-url" placeholder="点击跳转链接 URL" />
-                  <button type="submit">保存广告</button>
-                </form>
-                <div id="banner-settings-result" class="result-panel empty">等待读取配置</div>
+
+                <div class="admin-tool-card admin-tool-card-owner" data-owner-only="true">
+                  <div class="tool-head">
+                    <h4>首页广告 Banner</h4>
+                    <span class="chip">Owner</span>
+                  </div>
+                  <p>配置首页广告图、标题、副标题与跳转链接。</p>
+                  <form id="banner-settings-form" class="admin-form-stack">
+                    <select id="banner-enabled">
+                      <option value="true">开启广告</option>
+                      <option value="false">关闭广告</option>
+                    </select>
+                    <input id="banner-title" placeholder="广告标题" />
+                    <input id="banner-subtitle" placeholder="广告副标题" />
+                    <input id="banner-image-url" placeholder="广告图片 URL" />
+                    <input id="banner-link-url" placeholder="点击跳转链接 URL" />
+                    <button type="submit">保存广告</button>
+                  </form>
+                  <div id="banner-settings-result" class="result-panel empty">等待读取配置</div>
+                </div>
               </div>
             </div>
           </div>
@@ -417,6 +372,6 @@
       <button id="checkin-btn" type="button">立即签到</button>
     </section>
   </div>
-  <script src="/tgapp/static/app.js?v=20260415-0132"></script>
+  <script src="/tgapp/static/app.js?v=20260415-0133"></script>
 </body>
 </html>
