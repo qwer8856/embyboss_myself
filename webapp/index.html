@@ -6,7 +6,7 @@
   <title>Sakura Emby Boss WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260415-0125" />
+  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260415-0131" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
@@ -362,7 +362,7 @@
         <h3 id="activate-sheet-title">启用 Emby</h3>
         <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-activate">关闭</button>
       </div>
-      <p class="redeem-sheet-desc">请先选择获取资格的方式。拿到资格后，再填写用户名和安全码完成注册。</p>
+      <p class="redeem-sheet-desc">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</p>
 
       <div class="activate-option-list">
         <button id="activate-public-btn" type="button" class="activate-option">
@@ -372,7 +372,7 @@
 
         <button id="activate-code-btn" type="button" class="activate-option">
           <span class="activate-option-title">使用注册码</span>
-          <span id="activate-code-meta" class="activate-option-meta">先兑换注册码，再填写用户名和安全码完成开通</span>
+          <span id="activate-code-meta" class="activate-option-meta">先兑换注册码换取资格，再填写用户名和安全码</span>
         </button>
 
         <button id="activate-points-btn" type="button" class="activate-option">
@@ -389,16 +389,16 @@
     <section class="redeem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="activate-register-title">
       <div class="redeem-sheet-handle"></div>
       <div class="redeem-sheet-head">
-        <h3 id="activate-register-title">注册 Emby</h3>
+        <h3 id="activate-register-title">注册状态</h3>
         <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-register">关闭</button>
       </div>
-      <p class="redeem-sheet-desc">请填写用户名和安全码。用户名按 bot 规则支持中英文和 emoji，但不要带空格；安全码也按 bot 兼容处理，不限制固定位数，但不要带空格，仅用于敏感操作验证，不是 Emby 登录密码。</p>
+      <p class="redeem-sheet-desc">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</p>
       <form id="activate-register-form" class="activate-register-form">
-        <input id="activate-register-name" type="text" placeholder="输入 Emby 用户名（中英文 / emoji）" autocomplete="off" />
-        <input id="activate-register-safe-code" type="password" maxlength="255" placeholder="设置安全码（不要带空格）" autocomplete="new-password" />
+        <input id="activate-register-name" type="text" placeholder="输入用户名（不要带空格）" autocomplete="off" />
+        <input id="activate-register-safe-code" type="password" maxlength="255" placeholder="输入安全码（4~6位数字）" autocomplete="new-password" />
         <button id="activate-register-submit" type="submit">立即注册</button>
       </form>
-      <div id="activate-register-meta" class="helper-text">请先获取注册资格。</div>
+      <div id="activate-register-meta" class="helper-text">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</div>
       <div id="activate-register-result" class="result-panel empty">等待提交</div>
     </section>
   </div>
@@ -417,6 +417,6 @@
       <button id="checkin-btn" type="button">立即签到</button>
     </section>
   </div>
-  <script src="/tgapp/static/app.js?v=20260415-0125"></script>
+  <script src="/tgapp/static/app.js?v=20260415-0131"></script>
 </body>
 </html>

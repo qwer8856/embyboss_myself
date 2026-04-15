@@ -200,7 +200,16 @@ async def renew_user_account(body: QueryDaysRequest, user=Depends(require_admin)
     if not ok:
         raise HTTPException(status_code=500, detail="db_update_failed")
     LOGGER.info(f"WebApp admin {user['tg_id']} renewed {record.tg} by {body.days} days")
-    return {"code": 200, "data": {"tg": record.tg, "expires_at": ex_new, "lv": lv}}
+    return {
+        "code": 200,
+        "data": {
+            "tg": record.tg,
+            "name": record.name or record.embyid or str(record.tg),
+            "days": body.days,
+            "expires_at": ex_new,
+            "lv": lv,
+        },
+    }
 
 
 @router.post("/users/ban")

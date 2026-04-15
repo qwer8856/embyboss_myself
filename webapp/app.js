@@ -301,6 +301,58 @@ function objectToLines(obj) {
   return Object.entries(obj).map(([key, value]) => `${key}：${value ?? "-"}`);
 }
 
+function getTgUserDisplayName(tgUser = state.me?.tg_user || {}) {
+  return String(tgUser?.first_name || tgUser?.username || "WebApp").trim() || "WebApp";
+}
+
+function getProfileDisplayName(profile = state.profile) {
+  return String(profile?.name || profile?.embyid || profile?.tg || "用户").trim() || "用户";
+}
+
+function formatBotAdminRenewLines(actorName, userName, days, expiresAt) {
+  return [
+    `🍒 __ ${actorName} 已调整 emby 用户 ${userName} 到期时间 ${days} 天 (以当前时间计)__`,
+    `📅 实时到期：${toDisplayTime(expiresAt)}`,
+  ];
+}
+
+function formatBotRenewCodeLines(giverName, days, expiresAt) {
+  return [
+    `🎊 少年郎，恭喜你，已收到 [${giverName}] 的${days}天🎁`,
+    `__已解封账户并延长到期时间至(以当前时间计)__`,
+    `到期时间：${toDisplayTime(expiresAt)}`,
+  ];
+}
+
+function formatWebRegisterGuideLines() {
+  return [
+    "请按 bot 提示填写用户名和安全码。",
+    "用户名不要带空格，安全码仅用于敏感操作验证。",
+  ];
+}
+
+function formatBotRegisterSuccessLines(data = {}, profile = state.profile) {
+  const line = data.line || getLineByLevel(profile);
+  return [
+    "▎创建用户成功🎉",
+    `· 用户名称 | \`${data.name || "-"}\``,
+    `· 用户密码 | \`${data.password || "-"}\``,
+    `· 安全密码 | \`${data.safe_code || "-"}\`（仅发送一次）`,
+    `· 到期时间 | \`${toDisplayTime(data.expires_at)}\``,
+    "· 当前线路：",
+    `${line || "普通线路"}`,
+    "**·【服务器】 - 查看线路和密码**",
+  ];
+}
+
+function formatBotRegisterCreditLines(giverName = "管理员") {
+  return [
+    `🎊 少年郎，恭喜你，已经收到了 [${giverName}] 发送的邀请注册资格`,
+    "",
+    "请选择你的选项~",
+  ];
+}
+
 function renderResult(targetId, payload, emptyText = "等待操作", variant = "info") {
   const el = document.getElementById(targetId);
   if (!el) return;
@@ -789,6 +841,18 @@ function formatActivateSuccess(result, methodLabel = "开通") {
   ];
 }
 
+function formatWebRegisterSuccessLines(result) {
+  const data = result?.data || {};
+  return [
+    "创建用户成功",
+    `用户名：${data.name || "-"}`,
+    `Emby密码：${data.password || "-"}`,
+    `安全码：${data.safe_code || "-"}`,
+    `到期时间：${toDisplayTime(data.expires_at)}`,
+    "安全码仅用于敏感操作验证，不是 Emby 登录密码。",
+  ];
+}
+
 function renderInviteItems(items = []) {
   const rows = (items || []).map((item, index) => `
     <div class="home-service-row">
@@ -970,9 +1034,24 @@ async function api(path, options = {}) {
     headers.Authorization = `Bearer ${state.token}`;
   }
   const res = await fetch(path, { ...options, headers });
-  const data = await res.json();
+  const rawText = await res.text();
+  let data = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch (err) {
+      data = null;
+    }
+  }
   if (!res.ok) {
-    throw new Error(data.detail || data.message || "request_failed");
+    if (data && typeof data === "object") {
+      throw new Error(data.detail || data.message || `request_failed (${res.status})`);
+    }
+    const fallback = rawText.trim().replace(/\s+/g, " ");
+    throw new Error(fallback || `request_failed (${res.status})`);
+  }
+  if (data === null) {
+    throw new Error(`invalid_json_response (${res.status})`);
   }
   return data;
 }
@@ -2177,9 +2256,14 @@ function bindForms() {
         method: "POST",
         body: JSON.stringify({ turnstile_token: state.turnstile.redeemToken }),
       });
-      const successText = "续期成功，请返回账户总览查看最新状态。";
-      renderResult("redeem-sheet-result", result.data || successText, "等待续期", "success");
-      showResultModal(successText, "success", "续期成功");
+      const lines = formatBotAdminRenewLines(
+        "WebApp",
+        result.data?.name || getProfileDisplayName(),
+        result.data?.days ?? state.renew.pointsDays ?? 30,
+        result.data?.expires_at
+      );
+      renderResult("redeem-sheet-result", lines, "等待续期", "success");
+      showResultModal(lines.join("\n"), "success", "续期成功");
       closeRedeemSheet();
       await loadUserStatus();
     } catch (err) {
@@ -2374,12 +2458,14 @@ function bindForms() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      renderResultHtml("renew-user-result", renderKeyValueResultCard("续期结果", {
-        TG: result.data?.tg,
-        账户状态: result.data?.lv,
-        到期时间: toDisplayTime(result.data?.expires_at),
-      }), "等待续期", "success");
-      showResultModal("账户续期已完成。", "success", "续期成功");
+      const lines = formatBotAdminRenewLines(
+        getTgUserDisplayName(),
+        result.data?.name || payload.query,
+        result.data?.days ?? payload.days,
+        result.data?.expires_at
+      );
+      renderResult("renew-user-result", lines, "等待续期", "success");
+      showResultModal(lines.join("\n"), "success", "续期成功");
     } catch (err) {
       setNotice(err.message, true);
       renderResult("renew-user-result", `续期失败：${err.message}`, "等待续期", "error");
@@ -2539,9 +2625,9 @@ function mapActivateError(message) {
     invalid_activate_method: "开通方式无效，请重试",
     user_not_found: "未找到用户记录，请稍后重试",
     user_already_has_emby: "你已拥有 Emby 账户",
-    missing_activate_name: "请先输入 Emby 用户名",
-    invalid_activate_name: "用户名格式不正确，请重新输入",
-    invalid_safe_code: "安全码不能为空且不能包含空格，请按 bot 兼容规则输入",
+    missing_activate_name: "请在2min内输入用户名和安全码",
+    invalid_activate_name: "用户名中不限制中/英文/emoji，🚫特殊字符。",
+    invalid_safe_code: "安全码为敏感操作时附加验证，请填入最熟悉的数字4~6位。",
     public_register_closed: "公开注册未开启",
     public_register_quota_reached: "公开注册名额已用完",
     no_register_credit: "没有可用注册码资格，请先使用注册码",
@@ -2626,9 +2712,9 @@ function updateActivateSheet(profile = state.profile) {
     if (hasAccount) {
       codeMeta.textContent = "你已拥有账户，请在兑换中心使用续期码";
     } else if (registerCredits > 0) {
-      codeMeta.textContent = `你有 ${registerCredits} 天注册码资格，填写用户名和安全码后即可开通`;
+      codeMeta.textContent = "你已获得注册资格，请直接填写用户名和安全码";
     } else {
-      codeMeta.textContent = "先输入注册码换取资格，再回来填写用户名和安全码完成开通";
+      codeMeta.textContent = "先兑换注册码换取资格，再填写用户名和安全码";
     }
   }
   if (codeBtn) {
@@ -2674,11 +2760,11 @@ function patchActivateFlowBindings() {
   const submitActivate = async (method, methodLabel) => {
     const { name, safeCode } = getActivateFormValues();
     if (!name) {
-      showResultModal("请先输入 Emby 用户名。", "info", "资料未填写");
+      showResultModal("请在2min内输入用户名和安全码。", "info", "资料未填写");
       return;
     }
     if (!/^\d{4,6}$/.test(safeCode)) {
-      showResultModal("安全码不能为空且不能包含空格。", "info", "安全码格式不正确");
+      showResultModal("安全码为敏感操作时附加验证，请填入最熟悉的数字4~6位。", "info", "安全码格式不正确");
       return;
     }
 
@@ -2764,14 +2850,21 @@ function patchActivateFlowBindings() {
           return;
         }
 
-        const successText = result.message === "renewed"
-          ? "续期成功，请返回账户总览查看最新状态。"
-          : result.message === "register_credit_added"
-            ? "注册码使用成功，请在“启用 Emby”中继续开通。"
-            : "兑换成功，请返回账户总览查看最新状态。";
-        renderResult("redeem-sheet-result", result.data || successText, "等待兑换", "success");
-        setNotice("兑换成功");
-        showResultModal(successText, "success", "兑换成功");
+        let successText = "兑换成功，请返回账户总览查看最新状态。";
+        let successLines = [successText];
+        if (result.message === "renewed") {
+          const giverName = result.data?.giver_name || "赠送者";
+          const days = result.data?.days ?? 30;
+          successLines = formatBotRenewCodeLines(giverName, days, result.data?.expires_at);
+          successText = successLines.join("\n");
+        } else if (result.message === "register_credit_added") {
+          successText = "注册码使用成功，请在“启用 Emby”中继续开通。";
+          successLines = [successText];
+        }
+        renderResult("redeem-sheet-result", successLines, "等待兑换", "success");
+        const successTitle = result.message === "renewed" ? "续期成功" : "兑换成功";
+        setNotice(successTitle);
+        showResultModal(successText, "success", successTitle);
         document.getElementById("redeem-sheet-code").value = "";
         closeRedeemSheet();
         await loadUserStatus();
@@ -2808,9 +2901,9 @@ function mapActivateError(message) {
     user_not_found: "未找到用户记录，请稍后重试",
     user_already_has_emby: "你已拥有 Emby 账户",
     already_has_register_credit: "你已拥有注册资格，请直接填写注册信息",
-    missing_activate_name: "请先输入 Emby 用户名",
-    invalid_activate_name: "用户名不能包含空格，请按 bot 规则重新输入",
-    invalid_safe_code: "安全码不能为空且不能包含空格，请按 bot 兼容规则输入",
+    missing_activate_name: "请在2min内输入用户名和安全码",
+    invalid_activate_name: "用户名中不限制中/英文/emoji，🚫特殊字符。",
+    invalid_safe_code: "安全码为敏感操作时附加验证，请填入最熟悉的数字4~6位。",
     public_register_closed: "公开注册未开启",
     public_register_quota_reached: "公开注册名额已用完",
     no_register_credit: "还没有可用资格，请先获取注册资格",
@@ -2825,14 +2918,8 @@ function mapActivateError(message) {
 
 function formatActivateSuccess(result, methodLabel = "注册") {
   const data = result?.data || {};
-  return [
-    `${methodLabel}成功`,
-    `用户名：${data.name || "-"}`,
-    `Emby密码：${data.password || "-"}`,
-    `安全码：${data.safe_code || "-"}`,
-    `到期时间：${toDisplayTime(data.expires_at)}`,
-    "安全码仅用于敏感操作验证，不是 Emby 登录密码。",
-  ];
+  void methodLabel;
+  return formatBotRegisterSuccessLines(data);
 }
 
 function getActivateFormValues() {
@@ -2917,6 +3004,7 @@ function updateRegisterSheet(profile = state.profile) {
 
   let canSubmit = false;
   let metaText = "请先获取注册资格。";
+  const guideText = formatWebRegisterGuideLines().join("\n");
   if (hasAccount) {
     metaText = "你已拥有 Emby 账户，无需重复注册。";
   } else if (method === "public") {
@@ -2925,7 +3013,7 @@ function updateRegisterSheet(profile = state.profile) {
     } else if (publicLeft <= 0) {
       metaText = "公开注册名额已用完。";
     } else {
-      metaText = `将按公开注册规则直接开通 ${publicDays} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+      metaText = guideText;
       canSubmit = true;
     }
   } else if (method === "points") {
@@ -2936,18 +3024,18 @@ function updateRegisterSheet(profile = state.profile) {
     } else if (points < inviteCost) {
       metaText = `积分不足，需要 ${inviteCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
     } else {
-      metaText = `将消耗 ${inviteCost}${moneyLabel} 直接开通 ${publicDays} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+      metaText = guideText;
       canSubmit = true;
     }
   } else if (registerCredits > 0) {
-    metaText = `当前可用注册码资格：${registerCredits} 天。用户名支持中英文和 emoji，请勿带空格；安全码按 bot 兼容处理，请勿带空格。`;
+    metaText = guideText;
     canSubmit = true;
   } else {
     metaText = "请先使用注册码获取注册资格。";
   }
 
   if (titleEl) {
-    titleEl.textContent = `注册 Emby（${methodLabel}）`;
+    titleEl.textContent = "注册状态";
   }
   if (metaEl) {
     metaEl.textContent = metaText;
@@ -2991,7 +3079,7 @@ function updateActivateSheet(profile = state.profile) {
     } else if (publicLeft <= 0) {
       publicMeta.textContent = "公开注册名额已用完";
     } else {
-      publicMeta.textContent = `填写用户名和安全码后可直接注册 ${publicDays} 天，剩余名额 ${publicLeft}`;
+      publicMeta.textContent = "🪙 开放注册中，免除资质核验。";
     }
   }
   if (publicBtn) {
@@ -3005,9 +3093,9 @@ function updateActivateSheet(profile = state.profile) {
     if (hasAccount) {
       codeMeta.textContent = "你已拥有账户，请在兑换中心使用续期码";
     } else if (hasCredit) {
-      codeMeta.textContent = `你已获得 ${registerCredits} 天资格，点此填写用户名和安全码`;
+      codeMeta.textContent = "你已获得注册资格，请直接填写用户名和安全码";
     } else {
-      codeMeta.textContent = "先兑换注册码拿到资格，再填写用户名和安全码";
+      codeMeta.textContent = "先兑换注册码换取资格，再填写用户名和安全码";
     }
   }
   if (codeBtn) {
@@ -3026,7 +3114,7 @@ function updateActivateSheet(profile = state.profile) {
     } else if (!pointsEnough) {
       pointsMeta.textContent = `需要 ${inviteCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}`;
     } else {
-      pointsMeta.textContent = `填写用户名和安全码后，消耗 ${inviteCost}${moneyLabel} 直接注册 ${publicDays} 天`;
+      pointsMeta.textContent = "🪙 积分兑换后可直接注册。";
     }
   }
   if (pointsBtn) {
@@ -3080,16 +3168,23 @@ function patchActivateFlowBindings() {
     const method = getActivateRegisterMethod();
     const methodLabel = getActivateRegisterMethodLabel(method);
     const { name, safeCode } = getActivateFormValues();
+    if (state.profile?.has_account) {
+      const text = "你已拥有 Emby 账户，无需重复注册。";
+      renderResult("activate-register-result", text, "等待提交", "info");
+      showResultModal(text, "info", "无需注册");
+      updateRegisterSheet();
+      return;
+    }
     if (!name) {
-      showResultModal("请先输入 Emby 用户名。", "info", "资料未填写");
+      showResultModal("请在2min内输入用户名和安全码。", "info", "资料未填写");
       return;
     }
     if (/\s/.test(name)) {
-      showResultModal("用户名不能包含空格，请按 bot 的输入方式填写。", "info", "用户名格式不正确");
+      showResultModal("用户名中不限制中/英文/emoji，🚫特殊字符。", "info", "用户名格式不正确");
       return;
     }
     if (!safeCode || /\s/.test(safeCode)) {
-      showResultModal("安全码不能为空且不能包含空格。", "info", "安全码格式不正确");
+      showResultModal("安全码为敏感操作时附加验证，请填入最熟悉的数字4~6位。", "info", "安全码格式不正确");
       return;
     }
 
@@ -3103,25 +3198,31 @@ function patchActivateFlowBindings() {
       });
 
       if (result.message === "register_credit_added") {
-        const successText = `${methodLabel}资格已到账，请继续填写用户名和安全码完成注册。`;
-        renderResult("activate-register-result", successText, "等待提交", "success");
-        showResultModal(successText, "success", "资格获取成功");
+        const successLines = formatBotRegisterCreditLines(result.data?.giver_name || "管理员");
+        renderResult("activate-register-result", successLines, "等待提交", "success");
+        showResultModal(successLines.join("\n"), "success", "注册资格到账");
         await loadUserStatus();
         state.activate.method = "credit";
         updateRegisterSheet();
         return;
       }
 
-      const lines = formatActivateSuccess(result, methodLabel);
+      const lines = formatWebRegisterSuccessLines(result);
       renderResult("activate-register-result", lines, "等待提交", "success");
-      showResultModal(lines.join("\n"), "success", "注册成功");
+      showResultModal(lines.join("\n"), "success", "创建用户成功");
       clearActivateForm();
       await loadUserStatus();
       closeActivateRegisterSheet();
     } catch (err) {
       const reason = mapActivateError(err.message);
-      renderResult("activate-register-result", `注册失败：${reason}`, "等待提交", "error");
-      showResultModal(`注册失败\n原因：${reason}`, "error", "注册失败");
+      if (err.message === "user_already_has_emby") {
+        const text = "你已拥有 Emby 账户，无需重复注册。";
+        renderResult("activate-register-result", text, "等待提交", "info");
+        showResultModal(text, "info", "无需注册");
+      } else {
+        renderResult("activate-register-result", `注册失败：${reason}`, "等待提交", "error");
+        showResultModal(`注册失败\n原因：${reason}`, "error", "注册失败");
+      }
       updateRegisterSheet();
     } finally {
       updateRegisterSheet();
@@ -3169,9 +3270,9 @@ function patchActivateFlowBindings() {
         });
 
         if (result.message === "register_credit_added" && !state.profile?.has_account) {
-          const successText = "注册码使用成功，请继续填写用户名和安全码完成注册。";
-          renderResult("redeem-sheet-result", successText, "等待兑换", "success");
-          showResultModal(successText, "success", "注册码已生效");
+          const successLines = formatBotRegisterCreditLines(result.data?.giver_name || "管理员");
+          renderResult("redeem-sheet-result", successLines, "等待兑换", "success");
+          showResultModal(successLines.join("\n"), "success", "注册资格到账");
           document.getElementById("redeem-sheet-code").value = "";
           closeRedeemSheet();
           await loadUserStatus();
@@ -3185,8 +3286,9 @@ function patchActivateFlowBindings() {
             ? "注册码使用成功，请在“启用 Emby”中继续开通。"
             : "兑换成功，请返回账户总览查看最新状态。";
         renderResult("redeem-sheet-result", result.data || successText, "等待兑换", "success");
-        setNotice("兑换成功");
-        showResultModal(successText, "success", "兑换成功");
+        const successTitle = result.message === "renewed" ? "续期成功" : "兑换成功";
+        setNotice(successTitle);
+        showResultModal(successText, "success", successTitle);
         document.getElementById("redeem-sheet-code").value = "";
         closeRedeemSheet();
         await loadUserStatus();

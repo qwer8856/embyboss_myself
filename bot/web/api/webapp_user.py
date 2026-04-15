@@ -494,6 +494,7 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
             cost = 0
             iv_current = int(record.iv or 0)
             lv_current = str(record.lv or "d")
+            final_lv = lv_current
             us_current = int(record.us or 0)
             final_name = ""
             embyid = ""
@@ -565,6 +566,7 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
                 record.pwd = pwd
                 record.pwd2 = pwd2
                 record.lv = "b"
+                final_lv = "b"
                 record.cr = datetime.now()
                 record.ex = ex
                 if method == "credit":
@@ -602,6 +604,7 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
             "safe_code": pwd2,
             "days": days,
             "expires_at": ex,
+            "line": bot_config.emby_line if final_lv != "a" else (bot_config.emby_whitelist_line or bot_config.emby_line),
             "points_left": int((latest.iv if latest else 0) or 0),
             "register_credits_left": int((latest.us if latest else 0) or 0),
         },
@@ -707,6 +710,8 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
         "data": {
             "days": days,
             "cost": cost,
+            "name": record.name or record.embyid or str(user["tg_id"]),
+            "tg_id": user["tg_id"],
             "points_left": points_left,
             "expires_at": ex_new,
         },
@@ -765,22 +770,39 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
                 session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.ex: ex_new})
             session.commit()
             ex_text = str(ex_new) if isinstance(ex_new, datetime) else str(ex_new)
-            legacy_renew_notify = """
-                f"· 🎟️ 续期码使用 - [用户](tg://user?id={user['tg_id']}) [{user['tg_id']}] 使用了 {masked_code}\n"
-                f"· 📅 实时到期 - {ex_text}"
-            )
-            """
             display_name = await _resolve_user_display_name(user["tg_id"])
+            giver_name = await _resolve_user_display_name(code_obj.tg)
             await _notify_group_message(
                 _build_renew_code_notify_text_v3(display_name, user["tg_id"], register_code, ex_text)
             )
             LOGGER.info(f"WebApp renew code used: tg={user['tg_id']} days={gift_days}")
-            return {"code": 200, "message": "renewed", "data": {"days": gift_days, "expires_at": ex_new}}
+            return {
+                "code": 200,
+                "message": "renewed",
+                "data": {
+                    "days": gift_days,
+                    "expires_at": ex_new,
+                    "name": record.name or record.embyid or str(user["tg_id"]),
+                    "tg_id": user["tg_id"],
+                    "giver_name": giver_name,
+                    "giver_tg_id": code_obj.tg,
+                },
+            }
 
         new_credit = record.us + gift_days
         session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.us: new_credit})
         session.commit()
         display_name = await _resolve_user_display_name(user["tg_id"])
+        giver_name = await _resolve_user_display_name(code_obj.tg)
         await _notify_group_message(_build_register_code_notify_text_v3(display_name, user["tg_id"], register_code))
         LOGGER.info(f"WebApp register code used: tg={user['tg_id']} credit={gift_days}")
-        return {"code": 200, "message": "register_credit_added", "data": {"credit": new_credit, "days": gift_days}}
+        return {
+            "code": 200,
+            "message": "register_credit_added",
+            "data": {
+                "credit": new_credit,
+                "days": gift_days,
+                "giver_name": giver_name,
+                "giver_tg_id": code_obj.tg,
+            },
+        }
