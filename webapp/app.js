@@ -1,4 +1,4 @@
-const tg = window.Telegram?.WebApp;
+﻿const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
   tg.expand();
@@ -553,53 +553,6 @@ function clearRemainCountdownTimer() {
 }
 
 function getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt) {
-  if (!hasAccount) return { countdown: false, text: "请先注册" };
-  if (isWhitelist) return { countdown: false, text: "白名单长期可用" };
-  if (!expiresAt || Number.isNaN(expiresAt.getTime())) return { countdown: false, text: "未设置" };
-  if (isDisabled) return { countdown: false, text: "已封禁" };
-  const diffMs = expiresAt.getTime() - Date.now();
-  if (diffMs <= 0) return { countdown: false, text: "已到期" };
-
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const totalDays = Math.floor(totalSeconds / 86400);
-  const months = Math.floor(totalDays / 30);
-  const days = totalDays % 30;
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return {
-    countdown: true,
-    months,
-    days,
-    hours,
-    minutes,
-    seconds,
-  };
-}
-
-function buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt) {
-  const stateData = getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt);
-  if (!stateData.countdown) {
-    return {
-      countdown: false,
-      html: `<span class="remain-text">${escapeHtml(stateData.text)}</span>`,
-    };
-  }
-  return {
-    countdown: true,
-    html: `
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.months)}</span><span class="remain-unit">月</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.days)}</span><span class="remain-unit">天</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.hours)}</span><span class="remain-unit">小时</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.minutes)}</span><span class="remain-unit">分钟</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.seconds)}</span><span class="remain-unit">秒</span></span>
-    `,
-  };
-}
-
-// Override remain copy and style marker with cleaner wording.
-function getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt) {
   if (!hasAccount) return { countdown: false, text: "请先开通账号" };
   if (isWhitelist) return { countdown: false, text: "白名单长期可用" };
   if (!expiresAt || Number.isNaN(expiresAt.getTime())) return { countdown: false, text: "暂未设置有效期" };
@@ -626,6 +579,25 @@ function getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt) {
   };
 }
 
+function getRemainCountdownParts(stateData) {
+  return [
+    { key: "months", value: pad2(stateData.months), unit: "月" },
+    { key: "days", value: pad2(stateData.days), unit: "天" },
+    { key: "hours", value: pad2(stateData.hours), unit: "小时" },
+    { key: "minutes", value: pad2(stateData.minutes), unit: "分钟" },
+    { key: "seconds", value: pad2(stateData.seconds), unit: "秒" },
+  ];
+}
+
+function buildRemainCountdownHtml(stateData) {
+  return getRemainCountdownParts(stateData).map((part) => `
+    <span class="remain-seg" data-remain-key="${part.key}">
+      <span class="remain-num">${part.value}</span>
+      <span class="remain-unit">${part.unit}</span>
+    </span>
+  `).join("");
+}
+
 function buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt) {
   const stateData = getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt);
   if (!stateData.countdown) {
@@ -637,13 +609,7 @@ function buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt) 
   }
   return {
     countdown: true,
-    html: `
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.months)}</span><span class="remain-unit">月</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.days)}</span><span class="remain-unit">天</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.hours)}</span><span class="remain-unit">小时</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.minutes)}</span><span class="remain-unit">分钟</span></span>
-      <span class="remain-seg"><span class="remain-num">${pad2(stateData.seconds)}</span><span class="remain-unit">秒</span></span>
-    `,
+    html: buildRemainCountdownHtml(stateData),
   };
 }
 
@@ -658,7 +624,13 @@ function startRemainCountdown(hasAccount, isWhitelist, isDisabled, expiresAt) {
       clearRemainCountdownTimer();
       return;
     }
-    const display = buildRemainDisplayHtml(hasAccount, isWhitelist, isDisabled, expiresAt);
+    const stateData = getRemainDisplayState(hasAccount, isWhitelist, isDisabled, expiresAt);
+    const display = stateData.countdown
+      ? { countdown: true, html: buildRemainCountdownHtml(stateData) }
+      : {
+          countdown: false,
+          html: `<span class="${stateData.tone === "danger" ? "remain-text remain-text-danger" : "remain-text"}">${escapeHtml(stateData.text)}</span>`,
+    };
     target.classList.toggle("is-countdown", display.countdown);
     target.classList.toggle("is-text", !display.countdown);
     target.innerHTML = display.html;
@@ -2005,7 +1977,7 @@ async function loadUserStatus() {
                 <path d="M15.8 13.9v2.1l1.5.9"></path>
               </svg>
             </span>
-            <span>Emby可用时长</span>
+            <span>账号可用时长</span>
           </span>
         </div>
         <div id="home-remain-value" class="home-remain-display ${remainDisplay.countdown ? "is-countdown" : "is-text"}">${remainDisplay.html}</div>
@@ -2071,10 +2043,6 @@ async function loadUserStatus() {
   const embyMiniTitle = document.querySelector('#user-status-data .home-mini-grid .home-mini-card:nth-child(2) .home-mini-title');
   if (embyMiniTitle) {
     embyMiniTitle.textContent = "Emby状态";
-  }
-  const remainTitleText = document.querySelector("#user-status-data .home-remain-title-main > span:last-of-type");
-  if (remainTitleText) {
-    remainTitleText.textContent = "账号可用状态";
   }
   const sidebarAccountBtn = document.querySelector('.sidebar button[data-role="account-action"]');
   if (sidebarAccountBtn) {

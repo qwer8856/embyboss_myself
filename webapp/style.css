@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg-page: #f4f7fc;
   --bg-page-gradient: linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
   --bg-card: rgba(255, 255, 255, 0.98);
@@ -826,183 +826,21 @@ button:disabled {
   width: 100%;
 }
 
-.home-points-panel {
-  position: relative;
-  overflow: hidden;
-  padding: 18px 18px 16px;
-  border-color: #dde5f2;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08), transparent 36%),
-    linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
-  box-shadow: var(--shadow-soft);
-}
-
-.home-points-panel::before {
-  content: "";
-  position: absolute;
-  top: -52px;
-  right: -26px;
-  width: 158px;
-  height: 158px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0) 72%);
-  pointer-events: none;
-}
-
-.home-points-title {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: auto;
-  padding: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #404754;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-
-.home-points-title::before {
-  content: "签到积分";
-  position: absolute;
-  top: 0;
-  left: 0;
-  color: #b07a1c;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  content: "";
-  position: static;
-  top: auto;
-  left: auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #d8deec;
-  background:
-    radial-gradient(circle at 36% 34%, #ffffff 0%, #ffffff 24%, transparent 25%),
-    radial-gradient(circle at 58% 58%, #e8eefc 0%, #e8eefc 34%, #f5f7ff 35%, #f5f7ff 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 6px 14px rgba(60, 72, 104, 0.08);
-}
-
-.home-points-title::after {
-  content: attr(data-state-label);
-  position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 70px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid #efd89b;
-  background: rgba(255, 247, 224, 0.95);
-  color: #a36b0f;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(190, 127, 19, 0.08);
-  display: none;
-}
-
-.home-points-panel.checked .home-points-title::after {
-  border-color: #d8dee8;
-  background: #eef2f7;
-  color: #637084;
-  display: none;
-}
-
-.home-points-value {
-  position: relative;
-  z-index: 1;
-  width: min(122px, 42%);
-  margin-top: 18px;
-  min-height: 66px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid #ebe4ff;
-  background: linear-gradient(180deg, #f3ecff 0%, #ece3ff 100%);
-  box-shadow: none;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 4px;
-  font-size: clamp(20px, 4.8vw, 28px);
-  font-weight: 800;
-  line-height: 1;
-  color: #5c47b7;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-points-value::before {
-  content: "当前余额";
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #8e82bb;
-  content: "当前余额";
-}
-
-.home-points-panel .home-divider {
-  display: block;
-  margin: 14px 0 0;
-  border-top: 1px solid #e7ebf3;
-}
-
-.home-points-btn {
-  position: relative;
-  z-index: 1;
-  height: 54px;
-  margin-top: 16px;
-  background: linear-gradient(135deg, #7c35f7 0%, #9348ff 100%);
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.22);
-}
-
-.home-points-btn:hover {
-  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.28);
-}
-
-.home-points-btn.is-checked {
-  background: #e8edf5;
-  color: #657186;
-  box-shadow: none;
-}
-
-.home-points-meta {
-  position: relative;
-  z-index: 1;
-  margin-top: 10px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: #8a93a7;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
 /* Home checkin panel layout redesign */
 .home-points-panel {
   padding: 18px 18px 16px;
   border-color: #d7dfef;
   background:
-    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.1), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08), transparent 34%),
     linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
 }
 
 .home-points-panel::before {
-  top: -54px;
-  right: -30px;
-  width: 170px;
-  height: 170px;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.11) 0%, rgba(124, 58, 237, 0) 74%);
+  top: -58px;
+  right: -34px;
+  width: 164px;
+  height: 164px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, rgba(124, 58, 237, 0) 74%);
 }
 
 .home-points-head {
@@ -1029,8 +867,8 @@ button:disabled {
 .home-points-title::before {
   content: "";
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   border: 1px solid #d6deed;
   background:
@@ -1079,8 +917,8 @@ button:disabled {
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid #e6dcff;
-  background: linear-gradient(180deg, #efe7ff 0%, #e7ddff 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: linear-gradient(180deg, #f2ebff 0%, #ece3ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.66);
 }
 
 .home-points-balance-label {
@@ -1098,16 +936,16 @@ button:disabled {
   padding: 14px 14px 12px;
   border-radius: 16px;
   border: 1px solid #e6dcff;
-  background: linear-gradient(180deg, #eee5ff 0%, #e9deff 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
-  gap: 8px;
-  font-size: clamp(30px, 6vw, 40px);
+  background: linear-gradient(180deg, #efe7ff 0%, #e9deff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  gap: 6px;
+  font-size: clamp(28px, 5.8vw, 38px);
   color: #5e47b7;
 }
 
 .home-points-value::before {
   content: "当前余额";
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   color: #7f71bc;
 }
@@ -1121,12 +959,12 @@ button:disabled {
 .home-points-btn {
   height: 58px;
   margin-top: 14px;
-  background: linear-gradient(135deg, #7f39f7 0%, #944bff 100%);
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.2);
+  background: linear-gradient(135deg, #7b3df2 0%, #9150fb 100%);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.18);
 }
 
 .home-points-btn:hover {
-  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.27);
+  box-shadow: 0 10px 22px rgba(124, 58, 237, 0.22);
 }
 
 .home-points-btn.is-checked {
@@ -1191,19 +1029,19 @@ button:disabled {
   overflow: hidden;
   border-color: #dbe4f3;
   background:
-    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.08), transparent 36%),
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.05), transparent 32%),
     linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
 .home-remain-panel::before {
   content: "";
   position: absolute;
-  top: -68px;
-  right: -34px;
-  width: 180px;
-  height: 180px;
+  top: -74px;
+  right: -42px;
+  width: 160px;
+  height: 160px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(109, 40, 217, 0.12) 0%, rgba(109, 40, 217, 0) 70%);
+  background: radial-gradient(circle, rgba(109, 40, 217, 0.08) 0%, rgba(109, 40, 217, 0) 70%);
   pointer-events: none;
 }
 
@@ -1224,41 +1062,12 @@ button:disabled {
 }
 
 .home-remain-title-main > span:last-of-type {
-  display: grid;
-  gap: 2px;
   min-width: 0;
   color: #1b2740;
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.1;
-}
-
-.home-remain-title-main > span:last-of-type::before {
-  content: "有效期";
-  display: block;
-  color: #7b8ba5;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.home-remain-title::after {
-  content: "实时";
-  flex: 0 0 auto;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid #d8e2f3;
-  background: rgba(255, 255, 255, 0.76);
-  color: #5c6f93;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
 }
 
 .home-remain-title-icon {
@@ -1290,7 +1099,7 @@ button:disabled {
   margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   color: #0f172a;
 }
 
@@ -1300,21 +1109,26 @@ button:disabled {
 
 .home-remain-display .remain-seg {
   min-width: 0;
-  min-height: 78px;
-  padding: 12px 6px 10px;
+  min-height: 92px;
+  padding: 11px 8px 9px;
   border-radius: 16px;
-  border: 1px solid #dee7f5;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 249, 255, 0.96) 100%);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e1e8f3;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.04);
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 5px;
+  gap: 7px;
   text-align: center;
 }
 
 .home-remain-display .remain-num {
-  font-size: clamp(24px, 4.5vw, 40px);
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(22px, 4.2vw, 36px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
@@ -1337,20 +1151,26 @@ button:disabled {
 
 .home-remain-display .remain-text {
   width: 100%;
-  padding: 18px 16px;
+  padding: 16px 14px;
   border-radius: 16px;
-  border: 1px solid #dee7f5;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 249, 255, 0.96) 100%);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
-  font-size: 20px;
+  border: 1px solid #e1e8f3;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.04);
+  font-size: 19px;
   font-weight: 800;
   color: #111827;
   text-align: center;
 }
 
+.home-remain-display .remain-text-danger {
+  border-color: #f3c7d1;
+  background: linear-gradient(180deg, #fff5f8 0%, #ffedf2 100%);
+  color: #cf3f5f;
+}
+
 .home-remain-panel .home-divider {
-  margin: 14px 0 12px;
-  border-top: 1px dashed #d7dfec;
+  margin: 13px 0 12px;
+  border-top: 1px dashed #d9e2ef;
 }
 
 .home-remain-panel .home-muted-line {
@@ -1361,9 +1181,9 @@ button:disabled {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid #e3eaf6;
-  background: rgba(255, 255, 255, 0.68);
-  color: #62738f;
+  border: 1px solid #dfe7f3;
+  background: rgba(255, 255, 255, 0.74);
+  color: #63738e;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -2758,19 +2578,8 @@ select,
   border-radius: 999px;
 }
 
-/* Remain panel copy + banned state emphasis */
-.home-remain-title-main > span:last-of-type::before {
-  content: "账号状态";
-}
-
 .home-remain-title::after {
   content: "当前";
-}
-
-.home-remain-display .remain-text-danger {
-  border-color: #f3c7d1;
-  background: linear-gradient(180deg, #fff5f8 0%, #ffedf2 100%);
-  color: #cf3f5f;
 }
 
 @keyframes fadeIn {
@@ -2955,14 +2764,14 @@ select,
     font-size: 11px;
   }
 
-  .home-remain-title-main > span:last-of-type {
-    font-size: 18px;
-  }
-
   .home-remain-title-icon {
     width: 32px;
     height: 32px;
     border-radius: 11px;
+  }
+
+  .home-remain-title-main > span:last-of-type {
+    font-size: 18px;
   }
 
   .home-remain-display {
@@ -2970,9 +2779,9 @@ select,
   }
 
   .home-remain-display .remain-seg {
-    min-height: 68px;
-    padding: 10px 4px 8px;
+    min-height: 82px;
     border-radius: 13px;
+    gap: 6px;
   }
 
   .home-remain-display .remain-num {
@@ -3635,3 +3444,4 @@ select,
     min-height: 44px;
   }
 }
+
