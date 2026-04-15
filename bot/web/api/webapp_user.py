@@ -156,9 +156,12 @@ def _build_register_code_notify_text(tg_id: int, code: str) -> str:
     return f"· 🎟️ 注册码使用 - [用户](tg://user?id={tg_id}) [{tg_id}] 使用了 {_mask_code(code)}"
 
 
-def _build_renew_notify_text(tg_id: int, ex_text: str) -> str:
+def _build_renew_notify_text(tg_id: int, cost: int, ex_text: str) -> str:
+    label = str(sakura_b or "").strip()
+    cost_text = f"{cost} {label}".strip() if label and label != "积分" else str(cost)
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u7eed\u8d39\u6210\u529f - [\u7528\u6237](tg://user?id={tg_id}) [{tg_id}]\n"
+        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - [\u5de5\u5177\u4eba](tg://user?id={tg_id}) [{tg_id}] "
+        f"\u4f7f\u7528\u4e86 {cost_text} \u79ef\u5206\u7eed\u671f\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
 
@@ -237,7 +240,7 @@ def _normalize_safe_code(raw: str) -> str:
 
 
 def _get_renew_config() -> dict:
-    points_enabled = bool(getattr(_open, "exchange", False))
+    points_auto_enabled = bool(getattr(_open, "exchange", False))
     check_ex_enabled = bool(getattr(schedall, "check_ex", False))
     low_activity_enabled = bool(getattr(schedall, "low_activity", False))
     activity_days = int(getattr(bot_config, "activity_check_days", 30) or 30)
@@ -246,7 +249,8 @@ def _get_renew_config() -> dict:
         # legacy field kept for compatibility with older frontend logic
         "mode": "code",
         "code_enabled": True,
-        "points_enabled": points_enabled,
+        "points_enabled": True,
+        "points_auto_enabled": points_auto_enabled,
         "points_cost": points_cost,
         "points_days": 30,
         "check_ex_enabled": check_ex_enabled,
@@ -339,6 +343,7 @@ async def user_status(user=Depends(get_current_webapp_user)):
             "renew_mode": renew["mode"],
             "renew_code_enabled": renew["code_enabled"],
             "renew_points_enabled": renew["points_enabled"],
+            "renew_points_auto_enabled": renew["points_auto_enabled"],
             "renew_points_cost": renew["points_cost"],
             "renew_points_days": renew["points_days"],
             "renew_check_ex_enabled": renew["check_ex_enabled"],
@@ -392,6 +397,7 @@ async def homepage_config(user=Depends(get_current_webapp_user)):
                 "mode": renew["mode"],
                 "code_enabled": renew["code_enabled"],
                 "points_enabled": renew["points_enabled"],
+                "points_auto_enabled": renew["points_auto_enabled"],
                 "points_cost": renew["points_cost"],
                 "points_days": renew["points_days"],
                 "check_ex_enabled": renew["check_ex_enabled"],
@@ -703,7 +709,7 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
 
     LOGGER.info(f"WebApp points renew: tg={user['tg_id']} days={days} cost={cost}")
     ex_text = ex_new.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex_new, datetime) else str(ex_new)
-    await _notify_group_message(_build_renew_notify_text(user["tg_id"], ex_text))
+    await _notify_group_message(_build_renew_notify_text(user["tg_id"], cost, ex_text))
     return {
         "code": 200,
         "message": "renewed",

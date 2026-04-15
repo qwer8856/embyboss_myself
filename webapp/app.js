@@ -27,7 +27,8 @@ const state = {
     mode: "code",
     activeTab: null,
     codeEnabled: true,
-    pointsEnabled: false,
+    pointsEnabled: true,
+    pointsAutoEnabled: false,
     pointsCost: 300,
     pointsDays: 30,
     checkExEnabled: false,
@@ -313,6 +314,18 @@ function formatBotAdminRenewLines(actorName, userName, days, expiresAt) {
   return [
     `🍒 __ ${actorName} 已调整 emby 用户 ${userName} 到期时间 ${days} 天 (以当前时间计)__`,
     `📅 实时到期：${toDisplayTime(expiresAt)}`,
+  ];
+}
+
+function formatWebPointsRenewLines(result, profile = state.profile) {
+  const data = result?.data || {};
+  const tgId = data.tg_id || profile?.tg || state.me?.tg_user?.id || "-";
+  const moneyLabel = getMoneyLabel(profile);
+  const cost = Number(data.cost ?? state.renew.pointsCost ?? 30);
+  const costText = `${cost} ${moneyLabel}`;
+  return [
+    `${moneyLabel}续费成功 - 工具人 [${tgId}] 使用了 ${costText}续期`,
+    `· 📅 实时到期 - ${toDisplayTime(data.expires_at)}`,
   ];
 }
 
@@ -957,7 +970,9 @@ function getRedeemActiveTab(profile = state.profile) {
 }
 
 function getRedeemPendingText(profile = state.profile) {
-  return getRedeemActiveTab(profile) === "points" ? "等待续期" : "等待兑换";
+  return getRedeemActiveTab(profile) === "points"
+    ? `等待${getMoneyLabel(profile)}续期`
+    : "等待兑换";
 }
 
 function setRedeemActiveTab(tab, profile = state.profile) {
@@ -984,6 +999,7 @@ function updateRenewSheet(profile = state.profile) {
   const hasAccount = Boolean(profile?.has_account);
   const moneyLabel = getMoneyLabel(profile);
   const pointsEnabled = Boolean(profile?.renew_points_enabled ?? state.renew.pointsEnabled);
+  const pointsAutoEnabled = Boolean(profile?.renew_points_auto_enabled ?? state.renew.pointsAutoEnabled);
   const pointsCost = Number(profile?.renew_points_cost ?? state.renew.pointsCost ?? 300);
   const pointsDays = Number(profile?.renew_points_days ?? state.renew.pointsDays ?? 30);
   const points = Number(profile?.points ?? 0);
@@ -992,7 +1008,7 @@ function updateRenewSheet(profile = state.profile) {
   if (titleEl) titleEl.textContent = "续费中心";
   if (descEl) {
     descEl.textContent = mode === "points"
-      ? "按管理员规则消耗积分续期。"
+      ? `按管理员规则消耗${moneyLabel}续期。自动${moneyLabel}续期：${pointsAutoEnabled ? "开启" : "关闭"}。`
       : "输入兑换码后立即生效，注册码和续期码均支持。";
   }
   if (modeWrap) modeWrap.hidden = false;
@@ -1004,6 +1020,7 @@ function updateRenewSheet(profile = state.profile) {
     modePointsBtn.classList.toggle("active", mode === "points");
     modePointsBtn.setAttribute("aria-pressed", mode === "points" ? "true" : "false");
     modePointsBtn.disabled = !hasAccount;
+    modePointsBtn.textContent = `${moneyLabel}续期`;
   }
   if (formEl) formEl.hidden = mode !== "code";
   if (pointsWrap) pointsWrap.hidden = mode !== "points";
@@ -1014,10 +1031,10 @@ function updateRenewSheet(profile = state.profile) {
     tip = "你还没有 Emby 账户，暂时无法续期。";
     canRenew = false;
   } else if (!pointsEnabled) {
-    tip = "管理员未开启积分续期。";
+    tip = `管理员未开启${moneyLabel}续期。`;
     canRenew = false;
   } else if (points < pointsCost) {
-    tip = `积分不足，需要 ${pointsCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
+    tip = `${moneyLabel}不足，需要 ${pointsCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
     canRenew = false;
   }
   if (pointsMetaEl) pointsMetaEl.textContent = tip;
@@ -1136,6 +1153,7 @@ async function loadHomepageConfig() {
       : "code";
     state.renew.codeEnabled = Boolean(data.renew?.code_enabled ?? state.renew.codeEnabled ?? true);
     state.renew.pointsEnabled = Boolean(data.renew?.points_enabled ?? state.renew.pointsEnabled);
+    state.renew.pointsAutoEnabled = Boolean(data.renew?.points_auto_enabled ?? state.renew.pointsAutoEnabled);
     state.renew.pointsCost = Number(data.renew?.points_cost ?? state.renew.pointsCost ?? 300);
     state.renew.pointsDays = Number(data.renew?.points_days ?? state.renew.pointsDays ?? 30);
     state.renew.checkExEnabled = Boolean(data.renew?.check_ex_enabled ?? state.renew.checkExEnabled);
@@ -1809,6 +1827,7 @@ async function loadUserStatus() {
     : "code";
   state.renew.codeEnabled = Boolean(profile.renew_code_enabled ?? state.renew.codeEnabled ?? true);
   state.renew.pointsEnabled = Boolean(profile.renew_points_enabled ?? state.renew.pointsEnabled);
+  state.renew.pointsAutoEnabled = Boolean(profile.renew_points_auto_enabled ?? state.renew.pointsAutoEnabled);
   state.renew.pointsCost = Number(profile.renew_points_cost ?? state.renew.pointsCost ?? 300);
   state.renew.pointsDays = Number(profile.renew_points_days ?? state.renew.pointsDays ?? 30);
   state.renew.checkExEnabled = Boolean(profile.renew_check_ex_enabled ?? state.renew.checkExEnabled);
@@ -2234,7 +2253,7 @@ function bindForms() {
   if (redeemModePointsBtn) {
     redeemModePointsBtn.addEventListener("click", () => {
       setRedeemActiveTab("points");
-      renderResult("redeem-sheet-result", null, "等待续期");
+      renderResult("redeem-sheet-result", null, getRedeemPendingText());
     });
   }
 
@@ -2256,19 +2275,14 @@ function bindForms() {
         method: "POST",
         body: JSON.stringify({ turnstile_token: state.turnstile.redeemToken }),
       });
-      const lines = formatBotAdminRenewLines(
-        "WebApp",
-        result.data?.name || getProfileDisplayName(),
-        result.data?.days ?? state.renew.pointsDays ?? 30,
-        result.data?.expires_at
-      );
-      renderResult("redeem-sheet-result", lines, "等待续期", "success");
-      showResultModal(lines.join("\n"), "success", "续期成功");
+      const lines = formatWebPointsRenewLines(result);
+      renderResult("redeem-sheet-result", lines, getRedeemPendingText(), "success");
+      showResultModal(lines.join("\n"), "success", `${getMoneyLabel()}续费成功`);
       closeRedeemSheet();
       await loadUserStatus();
     } catch (err) {
       const reason = mapRenewError(err.message);
-      renderResult("redeem-sheet-result", `续期失败：${reason}`, "等待续期", "error");
+      renderResult("redeem-sheet-result", `续期失败：${reason}`, getRedeemPendingText(), "error");
       showResultModal(`续期失败\n原因：${reason}`, "error", "续期失败");
     } finally {
       if (state.turnstile.enabled) resetRedeemTurnstileWidget();
@@ -2826,7 +2840,7 @@ function patchActivateFlowBindings() {
     redeemForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (getRenewMode() === "points") {
-        showResultModal("当前续期方式为积分续期，请点击“立即续期”按钮。", "info", "续期方式已切换");
+        showResultModal(`当前续期方式为${getMoneyLabel()}续期，请点击“立即续期”按钮。`, "info", "续期方式已切换");
         return;
       }
       try {
@@ -3281,12 +3295,12 @@ function patchActivateFlowBindings() {
         }
 
         const successText = result.message === "renewed"
-          ? "续期成功，请返回账户总览查看最新状态。"
+          ? `${getMoneyLabel()}续费成功，请返回账户总览查看最新状态。`
           : result.message === "register_credit_added"
             ? "注册码使用成功，请在“启用 Emby”中继续开通。"
             : "兑换成功，请返回账户总览查看最新状态。";
         renderResult("redeem-sheet-result", result.data || successText, "等待兑换", "success");
-        const successTitle = result.message === "renewed" ? "续期成功" : "兑换成功";
+        const successTitle = result.message === "renewed" ? `${getMoneyLabel()}续费成功` : "兑换成功";
         setNotice(successTitle);
         showResultModal(successText, "success", successTitle);
         document.getElementById("redeem-sheet-code").value = "";
@@ -3391,7 +3405,7 @@ showView = function (...args) {
 // 3) points & activity availability follow bot settings
 function getRedeemPendingText(profile = state.profile) {
   const tab = getRedeemActiveTab(profile);
-  if (tab === "points") return "等待续期";
+  if (tab === "points") return `等待${getMoneyLabel(profile)}续期`;
   if (tab === "activity") return "等待保号";
   return "等待兑换";
 }
@@ -3433,6 +3447,7 @@ function updateRenewSheet(profile = state.profile) {
   const moneyLabel = getMoneyLabel(profile);
   const codeEnabled = Boolean(profile?.renew_code_enabled ?? state.renew.codeEnabled ?? true);
   const pointsEnabled = Boolean(profile?.renew_points_enabled ?? state.renew.pointsEnabled);
+  const pointsAutoEnabled = Boolean(profile?.renew_points_auto_enabled ?? state.renew.pointsAutoEnabled);
   const pointsCost = Number(profile?.renew_points_cost ?? state.renew.pointsCost ?? 300);
   const pointsDays = Number(profile?.renew_points_days ?? state.renew.pointsDays ?? 30);
   const checkExEnabled = Boolean(profile?.renew_check_ex_enabled ?? state.renew.checkExEnabled);
@@ -3447,9 +3462,9 @@ function updateRenewSheet(profile = state.profile) {
 
   if (titleEl) titleEl.textContent = "续费中心";
   if (descEl) {
-    const policy = `续期码：开启；积分续期：${pointsEnabled ? "开启" : "关闭"}；活跃续期：${lowActivityEnabled ? "开启" : "关闭"}`;
+    const policy = `续期码：开启；手动${moneyLabel}续期：${pointsEnabled ? "开启" : "关闭"}；自动${moneyLabel}续期：${pointsAutoEnabled ? "开启" : "关闭"}；活跃续期：${lowActivityEnabled ? "开启" : "关闭"}`;
     if (mode === "points") {
-      descEl.textContent = `按管理员规则消耗积分续期。${policy}`;
+      descEl.textContent = `按管理员规则消耗${moneyLabel}续期。${policy}`;
     } else if (mode === "activity") {
       descEl.textContent = `活跃续期由 Bot 定时任务自动保号。${policy}`;
     } else {
@@ -3467,6 +3482,7 @@ function updateRenewSheet(profile = state.profile) {
     modePointsBtn.classList.toggle("active", mode === "points");
     modePointsBtn.setAttribute("aria-pressed", mode === "points" ? "true" : "false");
     modePointsBtn.disabled = !hasAccount || !pointsEnabled;
+    modePointsBtn.textContent = `${moneyLabel}续期`;
   }
   if (modeActivityBtn) {
     modeActivityBtn.classList.toggle("active", mode === "activity");
@@ -3493,10 +3509,10 @@ function updateRenewSheet(profile = state.profile) {
     tip = "你还没有 Emby 账户，暂时无法续期。";
     canRenew = false;
   } else if (!pointsEnabled) {
-    tip = "管理员未开启积分续期。";
+    tip = `管理员未开启${moneyLabel}续期。`;
     canRenew = false;
   } else if (points < pointsCost) {
-    tip = `积分不足，需要 ${pointsCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
+    tip = `${moneyLabel}不足，需要 ${pointsCost}${moneyLabel}，当前仅有 ${points}${moneyLabel}。`;
     canRenew = false;
   }
   if (pointsMetaEl) pointsMetaEl.textContent = tip;

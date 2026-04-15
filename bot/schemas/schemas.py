@@ -48,7 +48,7 @@ class Open(BaseModel):
 
     checkin: bool
     checkin_lv: Optional[str] = 'd'
-    exchange: bool
+    exchange: bool  # 花币月度自动续期开关
     whitelist: bool
     invite: bool
     invite_lv: Optional[str] = 'b'
