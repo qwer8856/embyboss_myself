@@ -160,11 +160,11 @@ def _build_register_code_notify_text(tg_id: int, code: str) -> str:
     return f"· 🎟️ 注册码使用 - [用户](tg://user?id={tg_id}) [{tg_id}] 使用了 {_mask_code(code)}"
 
 
-def _build_renew_notify_text(tg_id: int, cost: int, ex_text: str) -> str:
+def _build_renew_notify_text(display_name: str, tg_id: int, cost: int, ex_text: str) -> str:
     label = str(sakura_b or "").strip()
     cost_text = f"{cost} {label}".strip() if label and label != "积分" else str(cost)
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - [\u5de5\u5177\u4eba](tg://user?id={tg_id}) [{tg_id}] "
+        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - {_format_user_mention(display_name, tg_id)} [{tg_id}] "
         f"\u4f7f\u7528\u4e86 {cost_text} \u79ef\u5206\u7eed\u671f\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
@@ -185,6 +185,20 @@ async def _resolve_user_display_name(tg_id: int) -> str:
     except Exception as exc:
         LOGGER.warning(f"WebApp resolve user display name failed: tg={tg_id} err={exc}")
         return str(tg_id)
+
+
+async def _resolve_user_username_or_name(tg_id: int, fallback_name: str = "") -> str:
+    try:
+        chat = await bot.get_chat(tg_id)
+        username = (getattr(chat, "username", None) or "").strip()
+        if username:
+            return f"@{username}"
+        fallback = str(fallback_name or "").strip()
+        return fallback or str(tg_id)
+    except Exception as exc:
+        LOGGER.warning(f"WebApp resolve user username failed: tg={tg_id} err={exc}")
+        fallback = str(fallback_name or "").strip()
+        return fallback or str(tg_id)
 
 
 def _format_user_mention(display_name: str, tg_id: int) -> str:
@@ -747,7 +761,11 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
 
     LOGGER.info(f"WebApp points renew: tg={user['tg_id']} days={days} cost={cost}")
     ex_text = ex_new.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex_new, datetime) else str(ex_new)
-    await _notify_group_message(_build_renew_notify_text(user["tg_id"], cost, ex_text))
+    display_name = await _resolve_user_username_or_name(
+        user["tg_id"],
+        record.name or record.embyid or str(user["tg_id"]),
+    )
+    await _notify_group_message(_build_renew_notify_text(display_name, user["tg_id"], cost, ex_text))
     return {
         "code": 200,
         "message": "renewed",

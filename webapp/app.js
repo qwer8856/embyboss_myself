@@ -306,6 +306,10 @@ function getTgUserDisplayName(tgUser = state.me?.tg_user || {}) {
   return String(tgUser?.first_name || tgUser?.username || "WebApp").trim() || "WebApp";
 }
 
+function getTgUserUsernameDisplayName(tgUser = state.me?.tg_user || {}, profile = state.profile) {
+  return String(tgUser?.username ? `@${tgUser.username}` : getProfileDisplayName(profile)).trim() || "WebApp";
+}
+
 function getProfileDisplayName(profile = state.profile) {
   return String(profile?.name || profile?.embyid || profile?.tg || "用户").trim() || "用户";
 }
@@ -323,8 +327,9 @@ function formatWebPointsRenewLines(result, profile = state.profile) {
   const moneyLabel = getMoneyLabel(profile);
   const cost = Number(data.cost ?? state.renew.pointsCost ?? 30);
   const costText = `${cost} ${moneyLabel}`;
+  const userLabel = getTgUserUsernameDisplayName(state.me?.tg_user, profile);
   return [
-    `${moneyLabel}续费成功 - 工具人 [${tgId}] 使用了 ${costText}续期`,
+    `${moneyLabel}续费成功 - ${userLabel} [${tgId}] 使用了 ${costText}续期`,
     `· 📅 实时到期 - ${toDisplayTime(data.expires_at)}`,
   ];
 }
