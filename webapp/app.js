@@ -1115,6 +1115,10 @@ async function loadHomepageConfig() {
   try {
     const result = await api("/webapp/user/homepage-config");
     const data = result.data || {};
+    const pageTitle = String(data.title || "").trim();
+    if (pageTitle) {
+      document.title = pageTitle;
+    }
     renderHomepageBanner(data);
     state.invite.enabled = Boolean(data.invite?.enabled);
     state.invite.level = data.invite?.level || "b";

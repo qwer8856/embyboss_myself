@@ -153,6 +153,7 @@ class WebAppTurnstile(BaseModel):
 class WebApp(BaseModel):
     status: bool = False
     title: str = "Sakura Emby Boss"
+    sidebar_title: str = "Sakura Emby Boss"
     url: Optional[str] = None
     session_ttl_seconds: int = 3600
     auth_max_age_seconds: int = 86400

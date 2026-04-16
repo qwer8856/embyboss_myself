@@ -574,43 +574,6 @@ body.no-turnstile .checkin-sheet-panel #checkin-btn {
   transform: translateX(-100%);
 }
 
-.sidebar-brand {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px;
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid var(--border);
-}
-
-.brand-mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--bg-accent);
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 20px;
-  box-shadow: var(--shadow-soft);
-}
-
-.sidebar-brand h1 {
-  margin: 0;
-  font-size: 20px;
-  letter-spacing: 0.2px;
-  color: var(--text-main);
-}
-
-.sidebar-brand p {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-soft);
-}
-
 .sidebar-group-title {
   margin: 0 0 10px;
   padding: 0 4px;
@@ -2564,7 +2527,6 @@ select:focus {
 .result-panel,
 .shortcut-card,
 .admin-tool-card,
-.sidebar-brand,
 .result-card-item,
 .tip-item,
 .simple-account-footer,
@@ -2595,7 +2557,6 @@ select,
 
 .chip,
 .status-pill,
-.brand-mark,
 .toast-icon,
 .status-dot,
 .result-modal-icon,
@@ -3469,4 +3430,3 @@ select,
     min-height: 44px;
   }
 }
-

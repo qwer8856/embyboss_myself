@@ -183,7 +183,7 @@ async def _resolve_user_username_or_name(tg_id: int, fallback_name: str = "") ->
         chat = await bot.get_chat(tg_id)
         username = (getattr(chat, "username", None) or "").strip()
         if username:
-            return f"@{username}"
+            return username
         fallback = str(fallback_name or "").strip()
         return fallback or str(tg_id)
     except Exception as exc:
@@ -225,14 +225,14 @@ def _escape_markdown_text(text: str) -> str:
 
 def _build_register_code_notify_text_v3(display_name: str, tg_id: int, code: str) -> str:
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
+        f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} [{tg_id}] "
         f"\u4f7f\u7528\u4e86 {_mask_code(code)}"
     )
 
 
 def _build_renew_code_notify_text_v3(display_name: str, tg_id: int, code: str, ex_text: str) -> str:
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u7eed\u671f\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
+        f"\u00b7 \U0001f39f\ufe0f \u7eed\u671f\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} [{tg_id}] "
         f"\u4f7f\u7528\u4e86 {_mask_code(code)}\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
@@ -246,7 +246,7 @@ def _build_activate_notify_text(display_name: str, tg_id: int, method: str, emby
     }
     method_label = method_labels.get(method, method or "注册")
     return (
-        f"· \U0001f4dd 账号注册成功 - {_format_user_mention(display_name, tg_id)} 通过 {method_label} 完成注册\n"
+        f"· \U0001f4dd 账号注册成功 - {_format_user_mention(display_name, tg_id)} [{tg_id}] 通过 {method_label} 完成注册\n"
         f"· \U0001f464 账号名 - {_escape_markdown_text(emby_name)}\n"
         f"· \U0001f4c5 有效期 - {days} 天，{ex_text}"
     )
@@ -406,6 +406,7 @@ async def homepage_config(user=Depends(get_current_webapp_user)):
         "code": 200,
         "data": {
             "title": webapp_config.title,
+            "sidebar_title": getattr(webapp_config, "sidebar_title", None) or webapp_config.title,
             "banner": {
                 "enabled": bool(getattr(banner, "enabled", False)),
                 "title": getattr(banner, "title", ""),
