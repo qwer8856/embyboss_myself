@@ -161,11 +161,11 @@ def _build_register_code_notify_text(display_name: str, tg_id: int, code: str) -
     return f"· 🎟️ 注册码使用 - {_format_user_mention(display_name, tg_id)} [{tg_id}] 使用了 {_mask_code(code)}"
 
 
-def _build_renew_notify_text(display_name: str, cost: int, ex_text: str) -> str:
+def _build_renew_notify_text(display_name: str, tg_id: int, cost: int, ex_text: str) -> str:
     label = str(sakura_b or "").strip()
     cost_text = f"{cost} {label}".strip() if label and label != "积分" else str(cost)
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - {_escape_markdown_text(display_name)} "
+        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - {_format_user_mention(display_name, tg_id)} [{tg_id}] "
         f"\u4f7f\u7528\u4e86 {cost_text} \u79ef\u5206\u7eed\u671f\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
@@ -178,16 +178,16 @@ def _build_register_code_notify_text_v2(tg_id: int, code: str) -> str:
     )
 
 
-async def _resolve_user_username_or_name(tg_id: int, fallback_name: str = "") -> str:
+async def _resolve_user_display_name(tg_id: int, fallback_name: str = "") -> str:
     try:
         chat = await bot.get_chat(tg_id)
-        username = (getattr(chat, "username", None) or "").strip()
-        if username:
-            return username
+        name = (getattr(chat, "first_name", None) or getattr(chat, "title", None) or "").strip()
+        if name:
+            return name
         fallback = str(fallback_name or "").strip()
         return fallback or str(tg_id)
     except Exception as exc:
-        LOGGER.warning(f"WebApp resolve user username failed: tg={tg_id} err={exc}")
+        LOGGER.warning(f"WebApp resolve user display name failed: tg={tg_id} err={exc}")
         fallback = str(fallback_name or "").strip()
         return fallback or str(tg_id)
 
@@ -625,7 +625,7 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
     latest = sql_get_emby(user["tg_id"])
     LOGGER.info(f"WebApp activate account: tg={user['tg_id']} method={method} days={days}")
     if create_now:
-        display_name = await _resolve_user_username_or_name(
+        display_name = await _resolve_user_display_name(
             user["tg_id"],
             final_name or record.name or record.embyid or str(user["tg_id"]),
         )
@@ -755,11 +755,11 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
 
     LOGGER.info(f"WebApp points renew: tg={user['tg_id']} days={days} cost={cost}")
     ex_text = ex_new.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex_new, datetime) else str(ex_new)
-    display_name = await _resolve_user_username_or_name(
+    display_name = await _resolve_user_display_name(
         user["tg_id"],
         record.name or record.embyid or str(user["tg_id"]),
     )
-    await _notify_group_message(_build_renew_notify_text(display_name, cost, ex_text))
+    await _notify_group_message(_build_renew_notify_text(display_name, user["tg_id"], cost, ex_text))
     return {
         "code": 200,
         "message": "renewed",
@@ -826,11 +826,11 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
                 session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.ex: ex_new})
             session.commit()
             ex_text = str(ex_new) if isinstance(ex_new, datetime) else str(ex_new)
-            display_name = await _resolve_user_username_or_name(
+            display_name = await _resolve_user_display_name(
                 user["tg_id"],
                 record.name or record.embyid or str(user["tg_id"]),
             )
-            giver_name = await _resolve_user_username_or_name(
+            giver_name = await _resolve_user_display_name(
                 code_obj.tg,
                 str(code_obj.tg),
             )
@@ -854,11 +854,11 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
         new_credit = record.us + gift_days
         session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.us: new_credit})
         session.commit()
-        display_name = await _resolve_user_username_or_name(
+        display_name = await _resolve_user_display_name(
             user["tg_id"],
             record.name or record.embyid or str(user["tg_id"]),
         )
-        giver_name = await _resolve_user_username_or_name(
+        giver_name = await _resolve_user_display_name(
             code_obj.tg,
             str(code_obj.tg),
         )
