@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+log
+db_backup
+bot-env
+config.json
+*.sql

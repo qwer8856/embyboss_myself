@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sakura Emby Boss WebApp</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <!-- bump this version on every webapp update to avoid stale browser cache -->
+  <link rel="stylesheet" href="/tgapp/static/style.css?v=20260416-0212" />
+</head>
+<body>
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+  <div id="floating-no-account-alert" class="floating-home-alert hidden" aria-live="polite" aria-atomic="true">
+    <div class="home-alert">
+      <div class="home-alert-icon">!</div>
+      <div>
+        <div class="home-alert-title">您尚未注册账号</div>
+        <div class="home-alert-desc">请先完成账号注册后再使用本服务。</div>
+      </div>
+    </div>
+  </div>
+  <div id="result-modal" class="result-modal hidden" aria-hidden="true">
+    <div class="result-modal-backdrop" id="result-modal-backdrop"></div>
+    <div class="result-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="result-modal-title">
+      <div class="result-modal-icon" id="result-modal-icon">i</div>
+      <div class="result-modal-title" id="result-modal-title">操作结果</div>
+      <div class="result-modal-message" id="result-modal-message"></div>
+      <button id="result-modal-close" class="result-modal-close" type="button">我知道了</button>
+    </div>
+  </div>
+  <div class="layout sidebar-closed" id="app-layout">
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <aside class="sidebar">
+      <div class="sidebar-group-title">导航菜单</div>
+      <div class="sidebar-nav">
+        <button data-view="home">首页总览</button>
+        <button type="button" data-action="open-checkin">积分签到</button>
+        <button data-view="admin-settings">管理员设置</button>
+        <button type="button" data-role="account-action" data-action="open-activate">启用 Emby</button>
+      </div>
+    </aside>
+    <main class="content">
+      <div class="page-toolbar">
+        <button id="sidebar-toggle" class="page-menu-button" type="button" aria-label="打开菜单">
+          <span class="menu-icon">☰</span>
+        </button>
+      </div>
+      <section id="user-status" class="view active page-view">
+        <a id="home-banner" class="home-banner hidden" href="#" target="_blank" rel="noopener">
+          <img id="home-banner-image" class="home-banner-image" alt="banner" />
+          <div class="home-banner-overlay">
+            <div id="home-banner-title" class="home-banner-title"></div>
+            <div id="home-banner-subtitle" class="home-banner-subtitle"></div>
+          </div>
+        </a>
+        <div class="content-grid single-grid">
+          <div id="user-status-data" class="content-card">加载中...</div>
+        </div>
+      </section>
+
+      <section id="redeem-center-legacy" class="view page-view" style="display:none;">
+        <div class="content-grid single-grid">
+          <div class="content-card feature-card large-card">
+            <div class="card-head">
+              <h3>输入兑换码</h3>
+              <span class="chip">即时生效</span>
+            </div>
+            <form id="redeem-form-legacy">
+              <input id="redeem-code" placeholder="输入注册码或续期码" />
+              <button type="submit">立即兑换</button>
+            </form>
+            <div class="helper-text">没有账户时优先使用注册码，已有账户时请使用续期码。</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="checkin-points-legacy" class="view page-view" style="display:none;">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">日常互动</span>
+            <h2>积分与签到</h2>
+          </div>
+          <p>每日签到可领取积分，成功后会自动刷新当前账户信息。</p>
+        </div>
+        <div class="checkin-points-card">
+          <div class="checkin-points-label">当前积分</div>
+          <div id="checkin-balance-legacy" class="checkin-points-value">-</div>
+        </div>
+        <div class="content-grid two-col-grid">
+          <div class="content-card accent-card large-card">
+            <div class="card-head">
+              <h3>今日签到</h3>
+              <span class="chip">每日一次</span>
+            </div>
+            <div class="card-copy">点击下方按钮即可提交签到。若今天已签到，会返回对应提示。</div>
+            <div id="turnstile-wrap-legacy" class="turnstile-wrap hidden">
+              <div id="turnstile-box-legacy" class="turnstile-box"></div>
+              <div class="turnstile-tip">请先完成人机验证，再进行签到。</div>
+            </div>
+            <button id="checkin-btn-legacy">立即签到</button>
+          </div>
+          <div class="content-card">
+            <div class="card-head">
+              <h3>签到信息</h3>
+              <span class="chip chip-light">实时</span>
+            </div>
+            <div id="checkin-result-legacy" class="result-panel empty">加载中...</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="admin-settings" class="view page-view admin-page">
+        <div class="admin-console">
+          <div class="admin-tool-card admin-tool-card-owner admin-banner-slot" data-owner-only="true">
+            <div class="tool-head">
+              <h4>置顶广告位</h4>
+              <span class="chip">Owner</span>
+            </div>
+            <p>首页顶部 Banner，支持图片、文案和跳转链接，点击图片即可跳转。</p>
+            <form id="banner-settings-form" class="admin-form-stack">
+              <select id="banner-enabled">
+                <option value="true">开启广告</option>
+                <option value="false">关闭广告</option>
+              </select>
+              <input id="banner-title" placeholder="广告标题" />
+              <input id="banner-subtitle" placeholder="广告副标题" />
+              <input id="banner-image-url" placeholder="广告图片 URL" />
+              <input id="banner-link-url" placeholder="点击跳转链接 URL" />
+              <button type="submit">保存广告</button>
+            </form>
+            <div id="banner-settings-result" class="result-panel empty">等待读取配置</div>
+          </div>
+          <div class="admin-dashboard">
+            <div class="admin-column">
+              <div class="admin-section-card admin-section-card-primary">
+                <div class="admin-section-title">
+                  <span class="eyebrow">用户操作</span>
+                  <h3>账户管理</h3>
+                  <p>按账号信息定位，按需创建、续期或删除。</p>
+                </div>
+
+                <div class="admin-tool-card admin-tool-card-search">
+                  <div class="tool-head">
+                    <h4>查找用户</h4>
+                    <span class="chip chip-light">查询</span>
+                  </div>
+                  <form id="search-users-form" class="admin-form-stack">
+                    <input id="search-query" placeholder="tg/name/embyid" />
+                    <button type="submit">查询</button>
+                  </form>
+                  <div id="search-users-result" class="result-panel empty">等待查询</div>
+                </div>
+
+                <div class="admin-tool-card danger-tool">
+                  <div class="tool-head">
+                    <h4>删除账户</h4>
+                    <span class="chip chip-danger">危险</span>
+                  </div>
+                  <form id="delete-user-form" class="admin-form-stack">
+                    <input id="delete-query" placeholder="tg/name/embyid" />
+                    <button type="submit">删除</button>
+                  </form>
+                  <div id="delete-user-result" class="result-panel empty">等待删除</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-column">
+              <div class="admin-section-card admin-section-card-secondary">
+                <div class="admin-section-title">
+                  <span class="eyebrow">权限与风控</span>
+                  <h3>权限控制</h3>
+                  <p>处理封禁、白名单与访问等级。</p>
+                </div>
+
+                <div class="admin-tool-card admin-tool-card-soft">
+                  <div class="tool-head">
+                    <h4>封禁 / 解封</h4>
+                    <span class="chip chip-light">状态</span>
+                  </div>
+                  <form id="ban-user-form" class="admin-form-stack admin-form-inline">
+                    <input id="ban-query" placeholder="tg/name/embyid" />
+                    <select id="ban-enable">
+                      <option value="true">封禁</option>
+                      <option value="false">解封</option>
+                    </select>
+                    <button type="submit">执行</button>
+                  </form>
+                  <div id="ban-user-result" class="result-panel empty">等待执行</div>
+                </div>
+              </div>
+
+              <div class="admin-section-card admin-section-card-system">
+                <div class="admin-section-title">
+                  <span class="eyebrow">Owner 专区</span>
+                  <h3>系统设置</h3>
+                  <p>Owner 专属配置，用于调节全站策略与视觉入口。</p>
+                </div>
+
+                <div class="admin-tool-card admin-tool-card-owner">
+                  <div class="tool-head">
+                    <h4>管理员授权</h4>
+                    <span class="chip">Owner</span>
+                  </div>
+                  <p>仅 owner 可执行管理员授权调整。</p>
+                  <form id="toggle-admin-form" class="admin-form-stack admin-form-inline">
+                    <input id="admin-tg" placeholder="TG ID" />
+                    <select id="admin-enable">
+                      <option value="true">添加管理员</option>
+                      <option value="false">删除管理员</option>
+                    </select>
+                    <button type="submit">执行</button>
+                  </form>
+                  <div id="toggle-admin-result" class="result-panel empty">等待执行</div>
+                </div>
+
+                <div class="admin-tool-card admin-tool-card-owner" data-owner-only="true">
+                  <div class="tool-head">
+                    <h4>签到设置</h4>
+                    <span class="chip">Owner</span>
+                  </div>
+                  <p>控制签到开关以及允许签到的用户等级。</p>
+                  <form id="checkin-settings-form" class="admin-form-stack">
+                    <select id="checkin-enabled">
+                      <option value="true">开启签到</option>
+                      <option value="false">关闭签到</option>
+                    </select>
+                    <select id="checkin-level">
+                      <option value="a">仅白名单</option>
+                      <option value="b">白名单 + 普通用户</option>
+                      <option value="c">除已删除外均可</option>
+                      <option value="d">所有用户</option>
+                    </select>
+                    <button type="submit">保存设置</button>
+                  </form>
+                  <div id="checkin-settings-result" class="result-panel empty">等待读取配置</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+  <div id="redeem-sheet" class="redeem-sheet" aria-hidden="true">
+    <div class="redeem-sheet-backdrop" data-action="close-redeem"></div>
+    <section class="redeem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="redeem-sheet-title">
+      <div class="redeem-sheet-handle"></div>
+      <div class="redeem-sheet-head">
+        <h3 id="redeem-sheet-title">兑换中心</h3>
+        <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-redeem">关闭</button>
+      </div>
+      <p class="redeem-sheet-desc">输入兑换码后立即生效，注册码和续期码均支持。</p>
+      <div id="redeem-mode-switch" class="redeem-mode-switch">
+        <button id="redeem-mode-code-btn" type="button" class="redeem-mode-btn active" aria-pressed="true">兑换码续期</button>
+        <button id="redeem-mode-points-btn" type="button" class="redeem-mode-btn" aria-pressed="false">手动续期</button>
+        <button id="redeem-mode-activity-btn" type="button" class="redeem-mode-btn" aria-pressed="false">活跃续期</button>
+      </div>
+      <form id="redeem-sheet-form" class="redeem-sheet-form">
+        <input id="redeem-sheet-code" placeholder="输入注册码或续期码" />
+        <button type="submit">立即兑换</button>
+      </form>
+      <div id="redeem-turnstile-wrap" class="turnstile-wrap hidden">
+        <div id="redeem-turnstile-box" class="turnstile-box"></div>
+        <div class="turnstile-tip">请先完成人机验证，再兑换或续期。</div>
+        <button id="redeem-verify-btn" type="button" class="ghost-btn turnstile-verify-btn">点击验证</button>
+      </div>
+      <div id="redeem-points-actions" class="redeem-points-actions" hidden>
+        <div id="redeem-points-meta" class="helper-text">按管理员设置进行手动续期。</div>
+        <button id="redeem-points-btn" type="button">立即续期</button>
+      </div>
+      <div id="redeem-activity-actions" class="redeem-points-actions" hidden>
+        <div id="redeem-activity-meta" class="helper-text">活跃续期依赖 Bot 的活跃检测策略，观看达标后自动保号，无需手动提交。</div>
+      </div>
+    </section>
+  </div>
+  <div id="invite-sheet" class="redeem-sheet invite-sheet" aria-hidden="true">
+    <div class="redeem-sheet-backdrop" data-action="close-invite"></div>
+    <section class="redeem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="invite-sheet-title">
+      <div class="redeem-sheet-handle"></div>
+      <div class="redeem-sheet-head">
+        <h3 id="invite-sheet-title">兑换邀请码</h3>
+        <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-invite">关闭</button>
+      </div>
+      <p class="redeem-sheet-desc">按管理员规则消耗积分兑换邀请码，支持月/季/半年/年与链接模式。</p>
+      <form id="invite-sheet-form" class="redeem-sheet-form">
+        <select id="invite-sheet-period">
+          <option value="mon">月卡（30天）</option>
+          <option value="sea">季卡（90天）</option>
+          <option value="half">半年（180天）</option>
+          <option value="year">年卡（365天）</option>
+        </select>
+        <input id="invite-sheet-count" type="number" min="1" max="50" step="1" value="1" placeholder="数量" />
+        <select id="invite-sheet-mode">
+          <option value="code">注册码</option>
+          <option value="link">深链接</option>
+        </select>
+        <button type="submit">立即兑换</button>
+      </form>
+      <div id="invite-sheet-result" class="result-panel empty">等待兑换</div>
+    </section>
+  </div>
+  <div id="activate-sheet" class="redeem-sheet activate-sheet" aria-hidden="true">
+    <div class="redeem-sheet-backdrop" data-action="close-activate"></div>
+    <section class="redeem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="activate-sheet-title">
+      <div class="redeem-sheet-handle"></div>
+      <div class="redeem-sheet-head">
+        <h3 id="activate-sheet-title">启用 Emby</h3>
+        <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-activate">关闭</button>
+      </div>
+      <p class="redeem-sheet-desc">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</p>
+
+      <div class="activate-option-list">
+        <button id="activate-public-btn" type="button" class="activate-option">
+          <span class="activate-option-title">公开注册</span>
+          <span id="activate-public-meta" class="activate-option-meta">读取中...</span>
+        </button>
+
+        <button id="activate-code-btn" type="button" class="activate-option">
+          <span class="activate-option-title">使用注册码</span>
+          <span id="activate-code-meta" class="activate-option-meta">先兑换注册码换取资格，再填写用户名和安全码</span>
+        </button>
+
+        <button id="activate-points-btn" type="button" class="activate-option">
+          <span class="activate-option-title">积分兑换</span>
+          <span id="activate-points-meta" class="activate-option-meta">读取中...</span>
+        </button>
+      </div>
+
+      <div id="activate-sheet-result" class="result-panel empty">等待操作</div>
+    </section>
+  </div>
+  <div id="activate-register-sheet" class="redeem-sheet activate-register-sheet" aria-hidden="true">
+    <div class="redeem-sheet-backdrop" data-action="close-register"></div>
+    <section class="redeem-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="activate-register-title">
+      <div class="redeem-sheet-handle"></div>
+      <div class="redeem-sheet-head">
+        <h3 id="activate-register-title">注册状态</h3>
+        <button type="button" class="ghost-btn redeem-sheet-close" data-action="close-register">关闭</button>
+      </div>
+      <p class="redeem-sheet-desc">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</p>
+      <form id="activate-register-form" class="activate-register-form">
+        <input id="activate-register-name" type="text" placeholder="输入用户名（不要带空格）" autocomplete="off" />
+        <input id="activate-register-safe-code" type="password" maxlength="255" placeholder="输入安全码（4~6位数字）" autocomplete="new-password" />
+        <button id="activate-register-submit" type="submit">立即注册</button>
+      </form>
+      <div id="activate-register-meta" class="helper-text">请按 bot 提示填写用户名和安全码。用户名不要带空格，安全码仅用于敏感操作验证。</div>
+      <div id="activate-register-result" class="result-panel empty">等待提交</div>
+    </section>
+  </div>
+  <div id="checkin-sheet" class="checkin-sheet" aria-hidden="true">
+    <div class="checkin-sheet-backdrop" data-action="close-checkin"></div>
+    <section class="checkin-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="checkin-sheet-title">
+      <div class="checkin-sheet-handle"></div>
+      <div class="checkin-sheet-head">
+        <h3 id="checkin-sheet-title">积分签到</h3>
+        <button type="button" class="ghost-btn checkin-sheet-close" data-action="close-checkin">关闭</button>
+      </div>
+      <div id="turnstile-wrap" class="turnstile-wrap hidden">
+        <div id="turnstile-box" class="turnstile-box"></div>
+        <button id="checkin-verify-btn" type="button" class="ghost-btn turnstile-verify-btn">点击验证</button>
+      </div>
+      <button id="checkin-btn" type="button">立即签到</button>
+    </section>
+  </div>
+  <script src="/tgapp/static/app.js?v=20260416-0212"></script>
+</body>
+</html>

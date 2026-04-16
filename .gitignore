@@ -1,0 +1,15 @@
+### Example user template template
+### Example user template
+
+# IntelliJ project files
+.idea/
+*.iml
+out
+gen
+!/keaiji.session
+!/keaiji_bot.session
+!/keaiji_bot.session-journal
+__pycache__
+log
+*.sql
+bot-env
