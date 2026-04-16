@@ -406,7 +406,6 @@ async def homepage_config(user=Depends(get_current_webapp_user)):
         "code": 200,
         "data": {
             "title": webapp_config.title,
-            "sidebar_title": getattr(webapp_config, "sidebar_title", None) or webapp_config.title,
             "banner": {
                 "enabled": bool(getattr(banner, "enabled", False)),
                 "title": getattr(banner, "title", ""),
