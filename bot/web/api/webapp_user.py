@@ -160,11 +160,11 @@ def _build_register_code_notify_text(tg_id: int, code: str) -> str:
     return f"· 🎟️ 注册码使用 - [用户](tg://user?id={tg_id}) [{tg_id}] 使用了 {_mask_code(code)}"
 
 
-def _build_renew_notify_text(display_name: str, tg_id: int, cost: int, ex_text: str) -> str:
+def _build_renew_notify_text(display_name: str, cost: int, ex_text: str) -> str:
     label = str(sakura_b or "").strip()
     cost_text = f"{cost} {label}".strip() if label and label != "积分" else str(cost)
     return (
-        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - {_format_user_mention(display_name, tg_id)} [{tg_id}] "
+        f"\u00b7 \U0001f39f\ufe0f \u79ef\u5206\u7eed\u8d39\u6210\u529f - {_escape_markdown_text(display_name)} "
         f"\u4f7f\u7528\u4e86 {cost_text} \u79ef\u5206\u7eed\u671f\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
@@ -765,7 +765,7 @@ async def renew_by_points(body: RenewPointsRequest, user=Depends(get_current_web
         user["tg_id"],
         record.name or record.embyid or str(user["tg_id"]),
     )
-    await _notify_group_message(_build_renew_notify_text(display_name, user["tg_id"], cost, ex_text))
+    await _notify_group_message(_build_renew_notify_text(display_name, cost, ex_text))
     return {
         "code": 200,
         "message": "renewed",

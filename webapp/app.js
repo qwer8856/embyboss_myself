@@ -329,7 +329,7 @@ function formatWebPointsRenewLines(result, profile = state.profile) {
   const costText = `${cost} ${moneyLabel}`;
   const userLabel = getTgUserUsernameDisplayName(state.me?.tg_user, profile);
   return [
-    `${moneyLabel}续费成功 - ${userLabel} [${tgId}] 使用了 ${costText}续期`,
+    `${moneyLabel}续费成功 - ${userLabel} 使用了 ${costText}续期`,
     `· 📅 实时到期 - ${toDisplayTime(data.expires_at)}`,
   ];
 }
