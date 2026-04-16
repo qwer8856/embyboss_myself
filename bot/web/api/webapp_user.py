@@ -13,7 +13,7 @@ from pyrogram import enums
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config, schedall, bot, group
+from bot import _open, LOGGER, webapp as webapp_config, sakura_b, config as bot_config, bot_name, ranks, save_config, schedall, bot, group, main_group
 from bot.func_helper.emby import emby, Embyservice
 from bot.func_helper.utils import pwd_create
 from bot.sql_helper import Session
@@ -139,12 +139,13 @@ def _normalize_group_chat_id_v2(raw):
 async def _notify_group_message(text: str) -> None:
     if not text:
         return
-    if not group:
-        LOGGER.warning("WebApp notify skipped: group list is empty")
+    target = group[0] if group else main_group
+    if not target:
+        LOGGER.warning("WebApp notify skipped: group and main_group are empty")
         return
-    chat_id = _normalize_group_chat_id_v2(group[0])
+    chat_id = _normalize_group_chat_id_v2(target)
     if chat_id is None:
-        LOGGER.warning(f"WebApp notify skipped: invalid group identifier: {group[0]!r}")
+        LOGGER.warning(f"WebApp notify skipped: invalid group identifier: {target!r}")
         return
     try:
         await bot.send_message(chat_id=chat_id, text=text, parse_mode=enums.ParseMode.MARKDOWN)
@@ -156,8 +157,8 @@ async def _notify_group_message(text: str) -> None:
             LOGGER.warning(f"WebApp notify fallback failed: {fallback_exc}")
 
 
-def _build_register_code_notify_text(tg_id: int, code: str) -> str:
-    return f"· 🎟️ 注册码使用 - [用户](tg://user?id={tg_id}) [{tg_id}] 使用了 {_mask_code(code)}"
+def _build_register_code_notify_text(display_name: str, tg_id: int, code: str) -> str:
+    return f"· 🎟️ 注册码使用 - {_format_user_mention(display_name, tg_id)} [{tg_id}] 使用了 {_mask_code(code)}"
 
 
 def _build_renew_notify_text(display_name: str, cost: int, ex_text: str) -> str:
@@ -175,16 +176,6 @@ def _build_register_code_notify_text_v2(tg_id: int, code: str) -> str:
         f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - [\u7528\u6237](tg://user?id={tg_id}) [{tg_id}] "
         f"\u4f7f\u7528\u4e86 {_mask_code(code)}"
     )
-
-
-async def _resolve_user_display_name(tg_id: int) -> str:
-    try:
-        chat = await bot.get_chat(tg_id)
-        name = (getattr(chat, "first_name", None) or getattr(chat, "title", None) or "").strip()
-        return name or str(tg_id)
-    except Exception as exc:
-        LOGGER.warning(f"WebApp resolve user display name failed: tg={tg_id} err={exc}")
-        return str(tg_id)
 
 
 async def _resolve_user_username_or_name(tg_id: int, fallback_name: str = "") -> str:
@@ -235,14 +226,14 @@ def _escape_markdown_text(text: str) -> str:
 def _build_register_code_notify_text_v3(display_name: str, tg_id: int, code: str) -> str:
     return (
         f"\u00b7 \U0001f39f\ufe0f \u6ce8\u518c\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
-        f"[{tg_id}] \u4f7f\u7528\u4e86 {_mask_code(code)}"
+        f"\u4f7f\u7528\u4e86 {_mask_code(code)}"
     )
 
 
 def _build_renew_code_notify_text_v3(display_name: str, tg_id: int, code: str, ex_text: str) -> str:
     return (
         f"\u00b7 \U0001f39f\ufe0f \u7eed\u671f\u7801\u4f7f\u7528 - {_format_user_mention(display_name, tg_id)} "
-        f"[{tg_id}] \u4f7f\u7528\u4e86 {_mask_code(code)}\n"
+        f"\u4f7f\u7528\u4e86 {_mask_code(code)}\n"
         f"\u00b7 \U0001f4c5 \u5b9e\u65f6\u5230\u671f - {ex_text}"
     )
 
@@ -255,7 +246,7 @@ def _build_activate_notify_text(display_name: str, tg_id: int, method: str, emby
     }
     method_label = method_labels.get(method, method or "注册")
     return (
-        f"· \U0001f4dd 账号注册成功 - {_format_user_mention(display_name, tg_id)} [{tg_id}] 通过 {method_label} 完成注册\n"
+        f"· \U0001f4dd 账号注册成功 - {_format_user_mention(display_name, tg_id)} 通过 {method_label} 完成注册\n"
         f"· \U0001f464 账号名 - {_escape_markdown_text(emby_name)}\n"
         f"· \U0001f4c5 有效期 - {days} 天，{ex_text}"
     )
@@ -634,7 +625,10 @@ async def activate_account(body: ActivateAccountRequest, user=Depends(get_curren
     latest = sql_get_emby(user["tg_id"])
     LOGGER.info(f"WebApp activate account: tg={user['tg_id']} method={method} days={days}")
     if create_now:
-        display_name = await _resolve_user_display_name(user["tg_id"])
+        display_name = await _resolve_user_username_or_name(
+            user["tg_id"],
+            final_name or record.name or record.embyid or str(user["tg_id"]),
+        )
         ex_text = ex.strftime("%Y-%m-%d %H:%M:%S") if isinstance(ex, datetime) else str(ex)
         await _notify_group_message(
             _build_activate_notify_text(display_name, user["tg_id"], method, final_name, days, ex_text)
@@ -832,8 +826,14 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
                 session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.ex: ex_new})
             session.commit()
             ex_text = str(ex_new) if isinstance(ex_new, datetime) else str(ex_new)
-            display_name = await _resolve_user_display_name(user["tg_id"])
-            giver_name = await _resolve_user_display_name(code_obj.tg)
+            display_name = await _resolve_user_username_or_name(
+                user["tg_id"],
+                record.name or record.embyid or str(user["tg_id"]),
+            )
+            giver_name = await _resolve_user_username_or_name(
+                code_obj.tg,
+                str(code_obj.tg),
+            )
             await _notify_group_message(
                 _build_renew_code_notify_text_v3(display_name, user["tg_id"], register_code, ex_text)
             )
@@ -854,8 +854,14 @@ async def redeem_code(body: RedeemCodeRequest, user=Depends(get_current_webapp_u
         new_credit = record.us + gift_days
         session.query(Emby).filter(Emby.tg == user["tg_id"]).update({Emby.us: new_credit})
         session.commit()
-        display_name = await _resolve_user_display_name(user["tg_id"])
-        giver_name = await _resolve_user_display_name(code_obj.tg)
+        display_name = await _resolve_user_username_or_name(
+            user["tg_id"],
+            record.name or record.embyid or str(user["tg_id"]),
+        )
+        giver_name = await _resolve_user_username_or_name(
+            code_obj.tg,
+            str(code_obj.tg),
+        )
         await _notify_group_message(_build_register_code_notify_text_v3(display_name, user["tg_id"], register_code))
         LOGGER.info(f"WebApp register code used: tg={user['tg_id']} credit={gift_days}")
         return {
