@@ -286,7 +286,8 @@ def _get_renew_config() -> dict:
         # legacy field kept for compatibility with older frontend logic
         "mode": "code",
         "code_enabled": True,
-        "points_enabled": True,
+        # Keep WebApp manual renew aligned with the bot-side renew switch.
+        "points_enabled": points_auto_enabled,
         "points_auto_enabled": points_auto_enabled,
         "points_cost": points_cost,
         "points_days": 30,
